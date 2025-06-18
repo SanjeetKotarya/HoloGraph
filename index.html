@@ -17,7 +17,10 @@
 <div class="control-panel">
   <h3>📊 VR Data Visualizer</h3>
   
-  <input type="file" id="csvInput" accept=".csv" class="file-input">
+  <div class="file-input-container">
+    <input type="file" id="csvInput" accept=".csv" class="file-input">
+    <button id="unloadButton" class="unload-button" onclick="unloadCSV()" style="display: none;">✕</button>
+  </div>
   
   <div class="control-group">
     <label for="chartType">Chart Type:</label>
@@ -271,6 +274,9 @@
         updateColumns();
         updateStats();
         showLoading(false);
+        
+        // Show unload button when file is loaded
+        document.getElementById('unloadButton').style.display = 'flex';
         
         // Auto-generate if we have data
         if (currentData.length > 0) {
@@ -994,14 +1000,21 @@
   }
   
   function resetView() {
-    // Reset camera and zoom
-    setView('free');
+    // Fully reset camera view, zoom, and panning
+    currentView = 'free';
+    currentZoom = 50;
+    const cameraRig = document.getElementById('cameraRig');
+    cameraRig.setAttribute('position', '0 1.6 8');
+    cameraRig.setAttribute('rotation', '0 0 0');
+    // Do NOT call updateCameraPosition() here, to avoid moving the camera far away
+    updateZoomIndicator();
+
     // Reset graph rotation
     resetGraphRotation();
-    // Unload CSV and clear all data
-    currentData = [];
-    // Clear file input
-    document.getElementById('csvInput').value = '';
+    // (Removed: Unload CSV and clear all data)
+    // currentData = [];
+    // document.getElementById('csvInput').value = '';
+    // document.getElementById('unloadButton').style.display = 'none';
     // Reset dropdowns to default
     document.getElementById('chartType').selectedIndex = 0;
     document.getElementById('xColumn').selectedIndex = 0;
@@ -1014,8 +1027,8 @@
     document.getElementById('showValues').checked = true;
     // Hide function input if visible
     document.getElementById('functionInputGroup').style.display = 'none';
-    // Clear chart and labels
-    clearChart();
+    // (Removed: clearChart() to keep the graph visible)
+    // clearChart();
     // Reset axis and title labels
     document.getElementById('xAxisLabel').setAttribute('troika-text', 'value: X Axis; color: #ff4757; align: center; fontSize: 0.7; outlineColor: black; outlineWidth: 0.03; maxWidth: 4');
     document.getElementById('yAxisLabel').setAttribute('troika-text', 'value: Y Axis; color: #2ed573; align: center; fontSize: 0.7; outlineColor: black; outlineWidth: 0.03; maxWidth: 4');
@@ -1657,6 +1670,37 @@
     console.log('3D function test result:', testResult);
   } catch (e) {
     console.error('3D function parsing test failed:', e);
+  }
+  
+  function unloadCSV() {
+    // Clear the file input
+    document.getElementById('csvInput').value = '';
+    
+    // Hide unload button
+    document.getElementById('unloadButton').style.display = 'none';
+    
+    // Clear data and reset everything
+    currentData = [];
+    clearChart();
+    
+    // Reset dropdowns to default
+    document.getElementById('xColumn').innerHTML = '<option>Select X</option>';
+    document.getElementById('yColumn').innerHTML = '<option>Select Y</option>';
+    document.getElementById('zColumn').innerHTML = '<option>None</option>';
+    document.getElementById('sizeColumn').innerHTML = '<option>None</option>';
+    document.getElementById('colorColumn').innerHTML = '<option>None</option>';
+    
+    // Reset axis and title labels
+    document.getElementById('xAxisLabel').setAttribute('text', 'value: X Axis; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf');
+    document.getElementById('yAxisLabel').setAttribute('text', 'value: Y Axis; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf');
+    document.getElementById('chartTitle').setAttribute('text', 'value: VR Data Visualization; color: #ffffff; align: center; baseline: center; wrapCount: 24; shader: msdf');
+    
+    // Update stats
+    updateStats();
+    
+    // Hide error/loading
+    showError('');
+    showLoading(false);
   }
 </script>
 </body>
