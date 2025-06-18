@@ -34,8 +34,18 @@
   </div>
   
   <div class="control-group" id="functionInputGroup" style="display:none;">
-    <label for="functionInput">f(x) or equation(s): <span style="font-weight:normal; color:#888">(one per line)</span></label>
-    <textarea id="functionInput" rows="3" style="width: 95%; font-size: 13px; resize: vertical;">sin(x)</textarea>
+    <label for="functionInput">f(x) or f(x,y) or equation(s): <span style="font-weight:normal; color:#888">(one per line)</span></label>
+    <textarea id="functionInput" rows="3" style="width: 95%; font-size: 13px; resize: vertical;">sin(x^2 + y^2) - cos(x - y)</textarea>
+    
+    <div style="margin-top: 10px;">
+      <label for="detailLevel">Detail Level:</label>
+      <select id="detailLevel" style="width: 100%; margin-top: 5px;">
+        <option value="low">Low (Fast)</option>
+        <option value="medium" selected>Medium (Balanced)</option>
+        <option value="high">High (Slow)</option>
+        <option value="ultra">Ultra High (Very Slow)</option>
+      </select>
+    </div>
   </div>
   
   <div class="control-group">
@@ -1255,7 +1265,68 @@
     container.innerHTML = '';
     labelsContainer.innerHTML = '';
     
-    // Add axis value labels
+    // Colors for multiple plots
+    const plotColors = ['#ffeb3b', '#4ECDC4', '#FF6B6B', '#45B7D1', '#DDA0DD', '#FF8A65', '#A8E6CF', '#FFEAA7'];
+    
+    funcLines.forEach((line, idx) => {
+      const color = plotColors[idx % plotColors.length];
+      
+      // Check if it's a 3D function (contains 'y' variable and no equals sign)
+      // Also check that it's not an equation like "y = f(x)"
+      if (line.includes('y') && !line.includes('=') && !line.match(/^y\s*=/i)) {
+        console.log('Detected 3D function:', line);
+        create3DFunctionPlot(line, color);
+      } else if (line.includes('=')) {
+        console.log('Detected equation:', line);
+        createGeneralEquationPlot(line, color);
+      } else {
+        console.log('Detected 2D function:', line);
+        createSingleFunctionPlot(line, color);
+      }
+    });
+    
+    // Add axis labels for 3D functions
+    if (funcLines.some(line => line.includes('y') && !line.includes('='))) {
+      add3DAxisLabels();
+    } else {
+      add2DAxisLabels();
+    }
+  }
+  
+  function add3DAxisLabels() {
+    const labelsContainer = document.getElementById('labelsContainer');
+    const xMin = -5, xMax = 5, yMin = -5, yMax = 5;
+    
+    // X-axis value labels
+    for (let x = xMin; x <= xMax; x += 1) {
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value: ${x}; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+      label.setAttribute('position', `${x} -0.3 0`);
+      label.setAttribute('scale', '0.4 0.4 0.4');
+      labelsContainer.appendChild(label);
+    }
+    
+    // Y-axis value labels
+    for (let y = yMin; y <= yMax; y += 1) {
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value: ${y}; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+      label.setAttribute('position', `-0.3 0 ${y}`);
+      label.setAttribute('scale', '0.4 0.4 0.4');
+      labelsContainer.appendChild(label);
+    }
+    
+    // Z-axis value labels (on a vertical line)
+    for (let z = -3; z <= 3; z += 1) {
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value: ${z}; color: #3742fa; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+      label.setAttribute('position', `-0.3 ${z} 0`);
+      label.setAttribute('scale', '0.4 0.4 0.4');
+      labelsContainer.appendChild(label);
+    }
+  }
+  
+  function add2DAxisLabels() {
+    const labelsContainer = document.getElementById('labelsContainer');
     const xMin = -10, xMax = 10;
     const yMin = -10, yMax = 10;
     
@@ -1276,17 +1347,104 @@
       label.setAttribute('scale', '0.4 0.4 0.4');
       labelsContainer.appendChild(label);
     }
+  }
+  
+  function create3DFunctionPlot(funcStr, color='#ffeb3b') {
+    console.log('Creating 3D function plot for:', funcStr);
+    const container = document.getElementById('dataContainer');
+    const mathFunc = parse3DMathFunction(funcStr);
+    const xMin = -5, xMax = 5, yMin = -5, yMax = 5;
     
-    // Colors for multiple plots
-    const plotColors = ['#ffeb3b', '#4ECDC4', '#FF6B6B', '#45B7D1', '#DDA0DD', '#FF8A65', '#A8E6CF', '#FFEAA7'];
-    funcLines.forEach((line, idx) => {
-      const color = plotColors[idx % plotColors.length];
-      if (line.includes('=')) {
-        createGeneralEquationPlot(line, color);
-      } else {
-        createSingleFunctionPlot(line, color);
+    // Get detail level setting
+    const detailLevel = document.getElementById('detailLevel').value;
+    let step, contourStep;
+    
+    switch(detailLevel) {
+      case 'low':
+        step = 1.0;
+        contourStep = 2.0;
+        break;
+      case 'high':
+        step = 0.1;
+        contourStep = 0.2;
+        break;
+      case 'ultra':
+        step = 0.05;
+        contourStep = 0.1;
+        break;
+      default: // medium
+        step = 0.5;
+        contourStep = 1.0;
+    }
+    
+    const points = [];
+    
+    // Generate 3D surface points
+    for (let x = xMin; x <= xMax; x += step) {
+      for (let y = yMin; y <= yMax; y += step) {
+        let z = 0;
+        try {
+          z = mathFunc(x, y);
+          if (isFinite(z) && z >= -10 && z <= 10) {
+            points.push({x, y, z});
+          }
+        } catch (e) {
+          continue;
+        }
       }
-    });
+    }
+    
+    console.log('Generated', points.length, 'points for 3D function (detail:', detailLevel, ')');
+    
+    // Create surface using larger, more visible objects
+    const gridSize = Math.ceil((xMax - xMin) / step);
+    
+    for (let i = 0; i < gridSize - 1; i++) {
+      for (let j = 0; j < gridSize - 1; j++) {
+        const idx1 = i * gridSize + j;
+        const idx2 = i * gridSize + j + 1;
+        const idx3 = (i + 1) * gridSize + j;
+        const idx4 = (i + 1) * gridSize + j + 1;
+        
+        if (points[idx1] && points[idx2] && points[idx3] && points[idx4]) {
+          const centerX = (points[idx1].x + points[idx2].x + points[idx3].x + points[idx4].x) / 4;
+          const centerY = (points[idx1].y + points[idx2].y + points[idx3].y + points[idx4].y) / 4;
+          const centerZ = (points[idx1].z + points[idx2].z + points[idx3].z + points[idx4].z) / 4;
+          
+          const patch = document.createElement('a-box');
+          patch.setAttribute('position', `${centerX} ${centerZ} ${centerY}`);
+          patch.setAttribute('width', step * 0.8);
+          patch.setAttribute('height', '0.05');
+          patch.setAttribute('depth', step * 0.8);
+          patch.setAttribute('material', `color: ${color}; metalness: 0.3; roughness: 0.7; opacity: 0.8`);
+          container.appendChild(patch);
+        }
+      }
+    }
+    
+    // Add key contour points
+    for (let x = xMin; x <= xMax; x += contourStep) {
+      for (let y = yMin; y <= yMax; y += contourStep) {
+        try {
+          const z = mathFunc(x, y);
+          if (isFinite(z) && z >= -10 && z <= 10) {
+            const sphere = document.createElement('a-sphere');
+            sphere.setAttribute('position', `${x} ${z} ${y}`);
+            sphere.setAttribute('radius', '0.1');
+            sphere.setAttribute('material', `color: ${color}; metalness: 0.5; roughness: 0.3`);
+            
+            sphere.setAttribute('animation__mouseenter', 'property: scale; to: 1.5 1.5 1.5; startEvents: mouseenter; dur: 200');
+            sphere.setAttribute('animation__mouseleave', 'property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200');
+            
+            container.appendChild(sphere);
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+    
+    console.log('Created optimized 3D surface');
   }
   
   function createSingleFunctionPlot(funcStr, color='#ffeb3b') {
@@ -1422,7 +1580,35 @@
     `);
   }
   
+  function parse3DMathFunction(str) {
+    // Preprocess: replace ^ with ** for JS power
+    str = str.replace(/\^/g, '**');
+    
+    // Only allow math functions and x, y
+    const allowed = ['sin','cos','tan','asin','acos','atan','sqrt','abs','log','exp','pow','PI','E','x','y'];
+    const safeStr = str.replace(/[^a-zA-Z0-9_\.\+\-\*\/\(\)\, ]/g, '');
+    
+    // eslint-disable-next-line no-new-func
+    return new Function('x', 'y', `
+      with (Math) {
+        const sec = (x) => 1 / cos(x);
+        const cosec = (x) => 1 / sin(x);
+        const cot = (x) => 1 / tan(x);
+        return ${safeStr};
+      }
+    `);
+  }
+  
   console.log('Enhanced VR Data Visualizer Ready - Now with Zoom, Labels & VR Toggle!');
+  
+  // Test 3D function parsing
+  try {
+    const testFunc = parse3DMathFunction('sin(x^2 + y^2) - cos(x - y)');
+    const testResult = testFunc(1, 1);
+    console.log('3D function test result:', testResult);
+  } catch (e) {
+    console.error('3D function parsing test failed:', e);
+  }
 </script>
 </body>
 </html>
