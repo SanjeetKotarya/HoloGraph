@@ -79,6 +79,7 @@
   
   <button class="button" onclick="generateChart()">Generate</button>
   <button class="button" onclick="resetView()">Reset View</button>
+  <button class="button" onclick="resetGraphRotation()">Reset Rotation</button>
   <button class="button vr-button" onclick="toggleVRMode()">Toggle VR</button>
   
   <div class="loading" id="loading">Loading...</div>
@@ -100,7 +101,7 @@
   <button class="view-button" onclick="setView('free')">Free View</button>
 </div>
 
-<div class="mode-indicator" id="modeIndicator">3D Mode (Shift + Left Click or Middle Mouse to pan)</div>
+<div class="mode-indicator" id="modeIndicator">3D Mode (Shift + Left Click to pan, Middle Mouse to rotate)</div>
 
 <a-scene id="scene" background="color: #1a1a2e" vr-mode-ui="enabled: false">
   <!-- Enhanced lighting -->
@@ -108,28 +109,31 @@
   <a-light type="directional" position="5 5 5" color="#ffffff" intensity="0.8"></a-light>
   <a-light type="point" position="0 5 0" color="#ffffff" intensity="0.3"></a-light>
   
-  <!-- Data container -->
-  <a-entity id="dataContainer"></a-entity>
-  
-  <!-- Labels container -->
-  <a-entity id="labelsContainer"></a-entity>
-  
-  <!-- Enhanced axes with labels -->
-  <a-entity id="axesContainer">
-    <!-- X-axis -->
-    <a-cylinder position="2 0 0" height="4" radius="0.02" rotation="0 0 90" material="color: #ff4757"></a-cylinder>
-    <a-entity id="xAxisLabel" text="value: X Axis; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf" position="4.5 0 0" scale="0.8 0.8 0.8"></a-entity>
+  <!-- Graph rotation container - this will rotate the entire graph around origin -->
+  <a-entity id="graphRotationContainer" position="0 0 0">
+    <!-- Data container -->
+    <a-entity id="dataContainer"></a-entity>
     
-    <!-- Y-axis -->
-    <a-cylinder position="0 2 0" height="4" radius="0.02" material="color: #2ed573"></a-cylinder>
-    <a-entity id="yAxisLabel" text="value: Y Axis; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf" position="0 4.5 0" scale="0.8 0.8 0.8"></a-entity>
+    <!-- Labels container -->
+    <a-entity id="labelsContainer"></a-entity>
     
-    <!-- Z-axis -->
-    <a-cylinder position="0 0 2" height="4" radius="0.02" rotation="90 0 0" material="color: #3742fa"></a-cylinder>
-    <a-entity text="value: Z; color: #3742fa; align: center; baseline: center; wrapCount: 12; shader: msdf" position="0 0 4.5" scale="0.8 0.8 0.8"></a-entity>
-    
-    <!-- Grid lines -->
-    <a-entity id="gridLines"></a-entity>
+    <!-- Enhanced axes with labels -->
+    <a-entity id="axesContainer">
+      <!-- X-axis -->
+      <a-cylinder position="2 0 0" height="4" radius="0.02" rotation="0 0 90" material="color: #ff4757"></a-cylinder>
+      <a-entity id="xAxisLabel" text="value: X Axis; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf" position="4.5 0 0" scale="0.8 0.8 0.8"></a-entity>
+      
+      <!-- Y-axis -->
+      <a-cylinder position="0 2 0" height="4" radius="0.02" material="color: #2ed573"></a-cylinder>
+      <a-entity id="yAxisLabel" text="value: Y Axis; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf" position="0 4.5 0" scale="0.8 0.8 0.8"></a-entity>
+      
+      <!-- Z-axis -->
+      <a-cylinder position="0 0 2" height="4" radius="0.02" rotation="90 0 0" material="color: #3742fa"></a-cylinder>
+      <a-entity text="value: Z; color: #3742fa; align: center; baseline: center; wrapCount: 12; shader: msdf" position="0 0 4.5" scale="0.8 0.8 0.8"></a-entity>
+      
+      <!-- Grid lines -->
+      <a-entity id="gridLines"></a-entity>
+    </a-entity>
   </a-entity>
   
   <!-- Camera with zoom controls -->
@@ -171,8 +175,13 @@
   
   // Dragging variables
   let isPanning = false;
+  let isRotating = false;
   let previousMousePosition = { x: 0, y: 0 };
   let cameraRig = null;
+  
+  // Rotation variables
+  let graphRotation = { x: 0, y: 0, z: 0 };
+  let rotationSpeed = 1.5;
   
   const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#FF8A65', '#A8E6CF'];
   
@@ -978,9 +987,17 @@
     }
   }
   
+  function resetGraphRotation() {
+    const rotationContainer = document.getElementById('graphRotationContainer');
+    rotationContainer.setAttribute('rotation', '0 0 0');
+    graphRotation = { x: 0, y: 0, z: 0 };
+  }
+  
   function resetView() {
     // Reset camera and zoom
     setView('free');
+    // Reset graph rotation
+    resetGraphRotation();
     // Unload CSV and clear all data
     currentData = [];
     // Clear file input
@@ -1088,8 +1105,8 @@
   
   // Dragging event handlers
   function handleMouseDown(event) {
-    // Shift+Left or Middle Mouse
-    if (((event.shiftKey && event.button === 0) || event.button === 1) && currentView === 'free') {
+    // Shift+Left Click for panning
+    if (event.shiftKey && event.button === 0 && currentView === 'free') {
       isPanning = true;
       previousMousePosition = {
         x: event.clientX,
@@ -1101,38 +1118,69 @@
       cameraEl.removeAttribute('wasd-controls');
       event.preventDefault();
     }
+    // Middle mouse button for rotation
+    else if (event.button === 1) {
+      isRotating = true;
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+      };
+      // Disable A-Frame controls during rotation
+      const cameraEl = document.getElementById('camera');
+      cameraEl.removeAttribute('look-controls');
+      cameraEl.removeAttribute('wasd-controls');
+      event.preventDefault();
+    }
   }
 
   function handleMouseMove(event) {
-    if (!isPanning || currentView !== 'free') return; // Only pan in free view
+    if (!isPanning && !isRotating) return; // Only handle if panning or rotating
 
     const deltaMove = {
       x: event.clientX - previousMousePosition.x,
       y: event.clientY - previousMousePosition.y
     };
 
-    const cameraRig = document.getElementById('cameraRig');
-    const camera = document.getElementById('camera');
-    const currentPos = cameraRig.getAttribute('position');
-    
-    // Get camera's world right and up vectors in one go
-    const worldRight = new THREE.Vector3();
-    const worldUp = new THREE.Vector3();
-    const worldForward = new THREE.Vector3(); 
-    camera.object3D.matrixWorld.extractBasis(worldRight, worldUp, worldForward);
+    if (isPanning && currentView === 'free') {
+      // Handle panning
+      const cameraRig = document.getElementById('cameraRig');
+      const camera = document.getElementById('camera');
+      const currentPos = cameraRig.getAttribute('position');
+      
+      // Get camera's world right and up vectors in one go
+      const worldRight = new THREE.Vector3();
+      const worldUp = new THREE.Vector3();
+      const worldForward = new THREE.Vector3(); 
+      camera.object3D.matrixWorld.extractBasis(worldRight, worldUp, worldForward);
 
-    // Pan speed factor - inversely proportional to zoom for consistent feel
-    // A smaller base value, scaled by zoom: when zoomed in (small currentZoom), pan slower. When zoomed out (large currentZoom), pan faster.
-    const panSpeed = 0.001 * currentZoom;
+      // Pan speed factor - inversely proportional to zoom for consistent feel
+      const panSpeed = 0.001 * currentZoom;
 
-    // Calculate new position based on camera's world orientation
-    // Inverted panning: deltaMove.x > 0 (drag right) -> camera moves left (negative right vector)
-    //                  deltaMove.y > 0 (drag down)  -> camera moves up (positive up vector)
-    const newX = currentPos.x - worldRight.x * deltaMove.x * panSpeed + worldUp.x * deltaMove.y * panSpeed;
-    const newY = currentPos.y - worldRight.y * deltaMove.x * panSpeed + worldUp.y * deltaMove.y * panSpeed;
-    const newZ = currentPos.z - worldRight.z * deltaMove.x * panSpeed + worldUp.z * deltaMove.y * panSpeed;
-    
-    cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+      // Calculate new position based on camera's world orientation
+      const newX = currentPos.x - worldRight.x * deltaMove.x * panSpeed + worldUp.x * deltaMove.y * panSpeed;
+      const newY = currentPos.y - worldRight.y * deltaMove.x * panSpeed + worldUp.y * deltaMove.y * panSpeed;
+      const newZ = currentPos.z - worldRight.z * deltaMove.x * panSpeed + worldUp.z * deltaMove.y * panSpeed;
+      
+      cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+    }
+    else if (isRotating) {
+      // Handle rotation of the graph
+      const rotationContainer = document.getElementById('graphRotationContainer');
+      const currentRotation = rotationContainer.getAttribute('rotation');
+      
+      // Update rotation based on mouse movement
+      // X movement affects Y rotation (horizontal mouse movement rotates around Y axis)
+      // Y movement affects X rotation (vertical mouse movement rotates around X axis)
+      const newRotX = currentRotation.x + deltaMove.y * rotationSpeed * 0.3;
+      const newRotY = currentRotation.y + deltaMove.x * rotationSpeed * 0.3;
+      
+      rotationContainer.setAttribute('rotation', `${newRotX} ${newRotY} ${currentRotation.z}`);
+      
+      // Update global rotation state
+      graphRotation.x = newRotX;
+      graphRotation.y = newRotY;
+      graphRotation.z = currentRotation.z;
+    }
 
     previousMousePosition = {
       x: event.clientX,
@@ -1144,7 +1192,8 @@
 
   function handleMouseUp(event) {
     isPanning = false;
-    // Re-enable A-Frame controls after panning
+    isRotating = false;
+    // Re-enable A-Frame controls after panning or rotation
     const cameraEl = document.getElementById('camera');
     cameraEl.setAttribute('look-controls', ''); // Re-add with default properties or restore previous if needed
     cameraEl.setAttribute('wasd-controls', ''); // Re-add with default properties
@@ -1238,7 +1287,7 @@
 
     // Update mode indicator
     const indicator = document.getElementById('modeIndicator');
-    indicator.textContent = `${view.charAt(0).toUpperCase() + view.slice(1)} View (Shift + Left Click or Middle Mouse to pan)`;
+    indicator.textContent = `${view.charAt(0).toUpperCase() + view.slice(1)} View (Shift + Left Click to pan, Middle Mouse to rotate)`;
 
     // Reset zoom for orthographic views
     if (view !== 'free') {
