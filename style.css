@@ -31,6 +31,33 @@ body {
     font-size: 12px;
   }
   
+  .file-input-container {
+    position: relative;
+    margin-bottom: 10px;
+  }
+  
+  .unload-button {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+  }
+  
+  .unload-button:hover {
+    background: #c0392b;
+  }
+  
   .control-group {
     margin-bottom: 10px;
   }
