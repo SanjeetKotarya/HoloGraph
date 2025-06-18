@@ -147,10 +147,6 @@ sin(x^2 + y^2) - cos(x - y)</textarea
       <button class="view-button" onclick="setView('free')">Free View</button>
     </div>
 
-    <div class="mode-indicator" id="modeIndicator">
-      3D Mode (Shift + Left Click to pan, Middle Mouse to rotate)
-    </div>
-
     <a-scene id="scene" background="color: #1a1a2e" vr-mode-ui="enabled: false">
       <!-- Enhanced lighting -->
       <a-light type="ambient" color="#404040"></a-light>
@@ -1367,15 +1363,12 @@ sin(x^2 + y^2) - cos(x - y)</textarea
 
       function toggleVRMode() {
         const scene = document.getElementById("scene");
-        const indicator = document.getElementById("modeIndicator");
 
         if (!isVRMode) {
           scene.enterVR();
-          indicator.textContent = "VR Mode";
           isVRMode = true;
         } else {
           scene.exitVR();
-          indicator.textContent = "3D Mode";
           isVRMode = false;
         }
       }
@@ -1657,12 +1650,6 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             button.classList.add("active");
           }
         });
-
-        // Update mode indicator
-        const indicator = document.getElementById("modeIndicator");
-        indicator.textContent = `${
-          view.charAt(0).toUpperCase() + view.slice(1)
-        } View (Shift + Left Click to pan, Middle Mouse to rotate)`;
 
         // Reset zoom for orthographic views
         if (view !== "free") {
