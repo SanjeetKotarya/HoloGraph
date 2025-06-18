@@ -1,0 +1,1428 @@
+<div class="control-group">
+    <label for="colorColumn">Color Group:</label>
+    <select id="colorColumn"><option>None</option></select>
+  </div><!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>VR Data Visualizer - Enhanced</title>
+<meta name="description" content="Enhanced 3D Data Visualization with Zoom and Labels">
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/aframe-troika-text@^1.0.0/dist/aframe-troika-text.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/aframe-line-component/dist/aframe-line-component.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="control-panel">
+  <h3>📊 VR Data Visualizer</h3>
+  
+  <input type="file" id="csvInput" accept=".csv" class="file-input">
+  
+  <div class="control-group">
+    <label for="chartType">Chart Type:</label>
+    <select id="chartType">
+      <option value="bar">3D Bar Chart</option>
+      <option value="scatter">3D Scatter Plot</option>
+      <option value="line">3D Line Chart</option>
+      <option value="pie">3D Pie Chart</option>
+      <option value="surface">3D Surface Plot</option>
+      <option value="network">3D Network Graph</option>
+      <option value="heatmap">3D Heatmap</option>
+      <option value="function">Function Plot (Math Graph)</option>
+    </select>
+  </div>
+  
+  <div class="control-group" id="functionInputGroup" style="display:none;">
+    <label for="functionInput">f(x) or equation(s): <span style="font-weight:normal; color:#888">(one per line)</span></label>
+    <textarea id="functionInput" rows="3" style="width: 95%; font-size: 13px; resize: vertical;">sin(x)</textarea>
+  </div>
+  
+  <div class="control-group">
+    <label for="xColumn">X Column:</label>
+    <select id="xColumn"><option>Select X</option></select>
+  </div>
+  
+  <div class="control-group">
+    <label for="yColumn">Y Column:</label>
+    <select id="yColumn"><option>Select Y</option></select>
+  </div>
+  
+  <div class="control-group">
+    <label for="zColumn">Z Column (Surface/Network):</label>
+    <select id="zColumn"><option>None</option></select>
+  </div>
+  
+  <div class="control-group">
+    <label for="sizeColumn">Size Column (Network):</label>
+    <select id="sizeColumn"><option>None</option></select>
+  </div>
+  
+  <div class="control-group">
+    <label>
+      <input type="checkbox" id="showLabels" checked> Show Labels
+    </label>
+    <label>
+      <input type="checkbox" id="showValues" checked> Show Values
+    </label>
+  </div>
+  
+  <button class="button" onclick="generateChart()">Generate</button>
+  <button class="button" onclick="resetView()">Reset View</button>
+  <button class="button vr-button" onclick="toggleVRMode()">Toggle VR</button>
+  
+  <div class="loading" id="loading">Loading...</div>
+  <div class="error" id="error"></div>
+  <div class="stats" id="stats">Load CSV to see data</div>
+</div>
+
+<div class="zoom-controls">
+  <button class="zoom-button" onclick="zoomIn()">+</button>
+  <button class="zoom-button" onclick="zoomOut()">−</button>
+  <button class="zoom-button" onclick="resetView()" title="Reset">⌂</button>
+</div>
+
+<div class="view-controls">
+  <button class="view-button" onclick="setView('front')">Front View</button>
+  <button class="view-button" onclick="setView('top')">Top View</button>
+  <button class="view-button" onclick="setView('side')">Side View</button>
+  <button class="view-button" onclick="setView('isometric')">Isometric View</button>
+  <button class="view-button" onclick="setView('free')">Free View</button>
+</div>
+
+<div class="mode-indicator" id="modeIndicator">3D Mode (Shift + Left Click or Middle Mouse to pan)</div>
+
+<a-scene id="scene" background="color: #1a1a2e" vr-mode-ui="enabled: false">
+  <!-- Enhanced lighting -->
+  <a-light type="ambient" color="#404040"></a-light>
+  <a-light type="directional" position="5 5 5" color="#ffffff" intensity="0.8"></a-light>
+  <a-light type="point" position="0 5 0" color="#ffffff" intensity="0.3"></a-light>
+  
+  <!-- Data container -->
+  <a-entity id="dataContainer"></a-entity>
+  
+  <!-- Labels container -->
+  <a-entity id="labelsContainer"></a-entity>
+  
+  <!-- Enhanced axes with labels -->
+  <a-entity id="axesContainer">
+    <!-- X-axis -->
+    <a-cylinder position="2 0 0" height="4" radius="0.02" rotation="0 0 90" material="color: #ff4757"></a-cylinder>
+    <a-entity id="xAxisLabel" text="value: X Axis; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf" position="4.5 0 0" scale="0.8 0.8 0.8"></a-entity>
+    
+    <!-- Y-axis -->
+    <a-cylinder position="0 2 0" height="4" radius="0.02" material="color: #2ed573"></a-cylinder>
+    <a-entity id="yAxisLabel" text="value: Y Axis; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf" position="0 4.5 0" scale="0.8 0.8 0.8"></a-entity>
+    
+    <!-- Z-axis -->
+    <a-cylinder position="0 0 2" height="4" radius="0.02" rotation="90 0 0" material="color: #3742fa"></a-cylinder>
+    <a-entity text="value: Z; color: #3742fa; align: center; baseline: center; wrapCount: 12; shader: msdf" position="0 0 4.5" scale="0.8 0.8 0.8"></a-entity>
+    
+    <!-- Grid lines -->
+    <a-entity id="gridLines"></a-entity>
+  </a-entity>
+  
+  <!-- Camera with zoom controls -->
+  <a-entity id="cameraRig" position="0 1.6 8">
+    <a-camera id="camera" look-controls wasd-controls mouse-cursor="rayOrigin: mouse">
+      <a-cursor
+        position="0 0 -1"
+        geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+        material="color: #3498db; shader: flat">
+      </a-cursor>
+    </a-camera>
+  </a-entity>
+  
+  <!-- Enhanced Title -->
+  <a-entity id="chartTitle" text="value: VR Data Visualization; color: #ffffff; align: center; baseline: center; wrapCount: 24; shader: msdf" position="0 3.5 -4" scale="1.5 1.5 1.5"></a-entity>
+  
+  <!-- Legend container -->
+  <a-entity id="legendContainer" position="-5 2 -2"></a-entity>
+</a-scene>
+
+<script>
+  // Global variables
+  let currentData = [];
+  let config = {
+    type: 'bar',
+    xCol: null,
+    yCol: null,
+    zCol: null,
+    colorCol: null,
+    sizeCol: null,
+    showLabels: true,
+    showValues: true
+  };
+  
+  let isVRMode = false;
+  let currentZoom = 50; // Default zoom set to 50
+  const minZoom = 0.5;  // Allow zooming much closer
+  const maxZoom = 200; // Increased max zoom to 200
+  
+  // Dragging variables
+  let isPanning = false;
+  let previousMousePosition = { x: 0, y: 0 };
+  let cameraRig = null;
+  
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#FF8A65', '#A8E6CF'];
+  
+  // Add zoom indicator
+  const zoomIndicator = document.createElement('div');
+  zoomIndicator.style.position = 'absolute';
+  zoomIndicator.style.bottom = '20px';
+  zoomIndicator.style.left = '20px';
+  zoomIndicator.style.background = 'rgba(0, 0, 0, 0.7)';
+  zoomIndicator.style.color = 'white';
+  zoomIndicator.style.padding = '8px 12px';
+  zoomIndicator.style.borderRadius = '20px';
+  zoomIndicator.style.fontSize = '12px';
+  zoomIndicator.style.display = 'none';
+  document.body.appendChild(zoomIndicator);
+
+  function updateZoomIndicator() {
+    const zoomPercentage = Math.round((currentZoom - minZoom) / (maxZoom - minZoom) * 100);
+    zoomIndicator.textContent = `Zoom: ${zoomPercentage}%`;
+    
+    // Show warning when zoomed very close
+    if (currentZoom < 2) {
+      zoomIndicator.style.background = 'rgba(255, 0, 0, 0.7)';
+      zoomIndicator.style.display = 'block';
+    } else {
+      zoomIndicator.style.background = 'rgba(0, 0, 0, 0.7)';
+      zoomIndicator.style.display = 'block';
+    }
+    
+    // Hide indicator after 2 seconds if not in warning state
+    if (currentZoom >= 2) {
+      setTimeout(() => {
+        if (currentZoom >= 2) {
+          zoomIndicator.style.display = 'none';
+        }
+      }, 2000);
+    }
+  }
+  
+  // Initialize
+  document.getElementById('csvInput').addEventListener('change', handleFileLoad);
+  document.addEventListener('DOMContentLoaded', function() {
+    cameraRig = document.getElementById('cameraRig');
+    
+    // Add mouse event listeners for panning
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Add touch event listeners for mobile
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+  });
+  
+  // Mouse wheel zoom with smoother control
+  document.addEventListener('wheel', function(event) {
+    if (event.deltaY < 0) {
+      zoomIn();
+    } else {
+      zoomOut();
+    }
+    event.preventDefault();
+  }, { passive: false });
+
+  // Add keyboard zoom controls
+  document.addEventListener('keydown', function(event) {
+    if (event.key === '=' || event.key === '+') {
+      zoomIn();
+    } else if (event.key === '-' || event.key === '_') {
+      zoomOut();
+    }
+  });
+  
+  function handleFileLoad(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    showLoading(true);
+    
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        currentData = results.data.filter(row => row && Object.keys(row).length > 0);
+        updateColumns();
+        updateStats();
+        showLoading(false);
+        
+        // Auto-generate if we have data
+        if (currentData.length > 0) {
+          setTimeout(generateChart, 300);
+        }
+      },
+      error: function(error) {
+        showError('Failed to parse CSV: ' + error.message);
+        showLoading(false);
+      }
+    });
+  }
+  
+  function updateColumns() {
+    const columns = Object.keys(currentData[0]);
+    const numericColumns = columns.filter(col => 
+      typeof currentData[0][col] === 'number' || !isNaN(parseFloat(currentData[0][col]))
+    );
+    
+    updateSelect('xColumn', columns, numericColumns[0] || columns[0]);
+    updateSelect('yColumn', columns, numericColumns[1] || numericColumns[0] || columns[1]);
+    updateSelect('zColumn', ['None', ...numericColumns]);
+    updateSelect('sizeColumn', ['None', ...numericColumns]);
+    updateSelect('colorColumn', ['None', ...columns]);
+  }
+  
+  function updateSelect(id, options, defaultValue = null) {
+    const select = document.getElementById(id);
+    select.innerHTML = '';
+    
+    options.forEach(option => {
+      const opt = document.createElement('option');
+      opt.value = option;
+      opt.textContent = option;
+      if (option === defaultValue) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+  
+  function generateChart() {
+    config.type = document.getElementById('chartType').value;
+    config.xCol = document.getElementById('xColumn').value;
+    config.yCol = document.getElementById('yColumn').value;
+    config.zCol = document.getElementById('zColumn').value === 'None' ? null : document.getElementById('zColumn').value;
+    config.sizeCol = document.getElementById('sizeColumn').value === 'None' ? null : document.getElementById('sizeColumn').value;
+    config.colorCol = document.getElementById('colorColumn').value === 'None' ? null : document.getElementById('colorColumn').value;
+    config.showLabels = document.getElementById('showLabels').checked;
+    config.showValues = document.getElementById('showValues').checked;
+    
+    // Only require data for non-function types
+    if (config.type !== 'function' && (!currentData.length || !config.xCol || !config.yCol)) {
+      showError('Please select data and required columns');
+      return;
+    }
+    
+    if (config.type === 'function') {
+      showLoading(true);
+      clearChart();
+      updateAxisLabels();
+      updateTitle();
+      setTimeout(() => {
+        try {
+          createFunctionPlot();
+          showLoading(false);
+        } catch (error) {
+          showError('Error creating function plot: ' + error.message);
+          showLoading(false);
+        }
+      }, 100);
+      return;
+    }
+    
+    showLoading(true);
+    clearChart();
+    updateAxisLabels();
+    updateTitle();
+    
+    // Limit data for performance
+    const limitedData = currentData.slice(0, 40);
+    
+    setTimeout(() => {
+      try {
+        switch(config.type) {
+          case 'bar':
+            createBarChart(limitedData);
+            break;
+          case 'scatter':
+            createScatterChart(limitedData);
+            break;
+          case 'line':
+            createLineChart(limitedData);
+            break;
+          case 'pie':
+            createPieChart(limitedData);
+            break;
+          case 'surface':
+            createSurfaceChart(limitedData);
+            break;
+          case 'network':
+            createNetworkChart(limitedData);
+            break;
+          case 'heatmap':
+            createHeatmapChart(limitedData);
+            break;
+        }
+        
+        if (config.colorCol) {
+          createLegend(limitedData);
+        }
+        
+        showLoading(false);
+      } catch (error) {
+        showError('Error creating chart: ' + error.message);
+        showLoading(false);
+      }
+    }, 100);
+  }
+  
+  function createBarChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    const maxValue = Math.max(...data.map(d => parseFloat(d[config.yCol]) || 0));
+    const colorGroups = config.colorCol ? [...new Set(data.map(d => d[config.colorCol]))] : null;
+    
+    data.forEach((row, index) => {
+      const xValue = row[config.xCol];
+      const yValue = parseFloat(row[config.yCol]) || 0;
+      const height = Math.max((yValue / maxValue) * 3, 0.1);
+      
+      const x = (index % 8 - 4) * 1.2;
+      const z = Math.floor(index / 8) * -1.2;
+      
+      // Create bar
+      const bar = document.createElement('a-box');
+      bar.setAttribute('position', `${x} ${height/2} ${z}`);
+      bar.setAttribute('width', '0.8');
+      bar.setAttribute('height', height);
+      bar.setAttribute('depth', '0.8');
+      
+      const color = getColor(row, colorGroups, index);
+      bar.setAttribute('material', `color: ${color}; metalness: 0.3; roughness: 0.7`);
+      
+      // Hover effects
+      bar.setAttribute('animation__mouseenter', 'property: scale; to: 1.1 1.1 1.1; startEvents: mouseenter; dur: 200');
+      bar.setAttribute('animation__mouseleave', 'property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200');
+      
+      container.appendChild(bar);
+      
+      // Add labels
+      if (config.showLabels && xValue) {
+        const label = document.createElement('a-entity');
+        label.setAttribute('text', `value: ${String(xValue).substring(0, 8)}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        label.setAttribute('position', `${x} -0.3 ${z}`);
+        label.setAttribute('scale', '0.6 0.6 0.6');
+        labelsContainer.appendChild(label);
+      }
+      
+      // Add values
+      if (config.showValues) {
+        const valueLabel = document.createElement('a-entity');
+        valueLabel.setAttribute('text', `value: ${yValue.toFixed(1)}; color: #ffff00; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        valueLabel.setAttribute('position', `${x} ${height + 0.2} ${z}`);
+        valueLabel.setAttribute('scale', '0.5 0.5 0.5');
+        labelsContainer.appendChild(valueLabel);
+      }
+    });
+  }
+  
+  function createScatterChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    const colorGroups = config.colorCol ? [...new Set(data.map(d => d[config.colorCol]))] : null;
+    
+    // Get value ranges
+    const xValues = data.map(d => parseFloat(d[config.xCol]) || 0);
+    const yValues = data.map(d => parseFloat(d[config.yCol]) || 0);
+    const xRange = [Math.min(...xValues), Math.max(...xValues)];
+    const yRange = [Math.min(...yValues), Math.max(...yValues)];
+    
+    data.forEach((row, index) => {
+      const xVal = parseFloat(row[config.xCol]) || 0;
+      const yVal = parseFloat(row[config.yCol]) || 0;
+      const x = normalize(xVal, xRange) * 8 - 4;
+      const y = normalize(yVal, yRange) * 4;
+      const z = (Math.random() - 0.5) * 3;
+      
+      const sphere = document.createElement('a-sphere');
+      sphere.setAttribute('position', `${x} ${y} ${z}`);
+      sphere.setAttribute('radius', '0.15');
+      
+      const color = getColor(row, colorGroups, index);
+      sphere.setAttribute('material', `color: ${color}; metalness: 0.2; roughness: 0.8`);
+      
+      sphere.setAttribute('animation__mouseenter', 'property: scale; to: 1.8 1.8 1.8; startEvents: mouseenter; dur: 200');
+      sphere.setAttribute('animation__mouseleave', 'property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200');
+      
+      container.appendChild(sphere);
+      
+      // Add value labels on hover
+      if (config.showValues) {
+        const valueLabel = document.createElement('a-entity');
+        valueLabel.setAttribute('text', `value: (${xVal.toFixed(1)}, ${yVal.toFixed(1)}); color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        valueLabel.setAttribute('position', `${x} ${y + 0.3} ${z}`);
+        valueLabel.setAttribute('scale', '0.4 0.4 0.4');
+        valueLabel.setAttribute('visible', 'false');
+        
+        sphere.setAttribute('animation__showlabel', 'property: visible; to: true; startEvents: mouseenter');
+        sphere.setAttribute('animation__hidelabel', 'property: visible; to: false; startEvents: mouseleave');
+        
+        labelsContainer.appendChild(valueLabel);
+      }
+    });
+  }
+  
+  function createLineChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    const sortedData = [...data].sort((a, b) => (parseFloat(a[config.xCol]) || 0) - (parseFloat(b[config.xCol]) || 0));
+    
+    const xValues = sortedData.map(d => parseFloat(d[config.xCol]) || 0);
+    const yValues = sortedData.map(d => parseFloat(d[config.yCol]) || 0);
+    const xRange = [Math.min(...xValues), Math.max(...xValues)];
+    const yRange = [Math.min(...yValues), Math.max(...yValues)];
+    
+    for (let i = 0; i < sortedData.length; i++) {
+      const xVal = parseFloat(sortedData[i][config.xCol]) || 0;
+      const yVal = parseFloat(sortedData[i][config.yCol]) || 0;
+      const x = normalize(xVal, xRange) * 8 - 4;
+      const y = normalize(yVal, yRange) * 4;
+      
+      // Create point
+      const point = document.createElement('a-sphere');
+      point.setAttribute('position', `${x} ${y} 0`);
+      point.setAttribute('radius', '0.08');
+      point.setAttribute('material', 'color: #3498db; metalness: 0.3');
+      
+      point.setAttribute('animation__mouseenter', 'property: scale; to: 2 2 2; startEvents: mouseenter; dur: 200');
+      point.setAttribute('animation__mouseleave', 'property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200');
+      
+      container.appendChild(point);
+      
+      // Add value labels
+      if (config.showValues) {
+        const valueLabel = document.createElement('a-entity');
+        valueLabel.setAttribute('text', `value: ${yVal.toFixed(1)}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        valueLabel.setAttribute('position', `${x} ${y + 0.2} 0.1`);
+        valueLabel.setAttribute('scale', '0.4 0.4 0.4');
+        labelsContainer.appendChild(valueLabel);
+      }
+      
+      // Create line to next point
+      if (i < sortedData.length - 1) {
+        const nextXVal = parseFloat(sortedData[i + 1][config.xCol]) || 0;
+        const nextYVal = parseFloat(sortedData[i + 1][config.yCol]) || 0;
+        const nextX = normalize(nextXVal, xRange) * 8 - 4;
+        const nextY = normalize(nextYVal, yRange) * 4;
+        
+        const distance = Math.sqrt(Math.pow(nextX - x, 2) + Math.pow(nextY - y, 2));
+        const angle = Math.atan2(nextY - y, nextX - x) * 180 / Math.PI;
+        
+        const line = document.createElement('a-cylinder');
+        line.setAttribute('position', `${(x + nextX) / 2} ${(y + nextY) / 2} 0`);
+        line.setAttribute('height', distance);
+        line.setAttribute('radius', '0.03');
+        line.setAttribute('rotation', `0 0 ${90 - angle}`);
+        line.setAttribute('material', 'color: #2c3e50; metalness: 0.5');
+        container.appendChild(line);
+      }
+    }
+  }
+  
+  function createPieChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    
+    // Group data by X column and sum Y values
+    const groupedData = data.reduce((acc, row) => {
+      const key = row[config.xCol];
+      const value = parseFloat(row[config.yCol]) || 0;
+      acc[key] = (acc[key] || 0) + value;
+      return acc;
+    }, {});
+    
+    const total = Object.values(groupedData).reduce((sum, val) => sum + val, 0);
+    const entries = Object.entries(groupedData);
+    const radius = 3;
+    const height = 0.5;
+    let currentAngle = 0;
+    
+    entries.forEach(([label, value], index) => {
+      const percentage = value / total;
+      const angle = percentage * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      const midAngle = (startAngle + endAngle) / 2;
+      
+      // Create pie slice
+      const slice = document.createElement('a-entity');
+      slice.setAttribute('position', '0 0 0');
+      
+      // Create the pie slice using a custom geometry
+      const geometry = document.createElement('a-cylinder');
+      geometry.setAttribute('height', height);
+      geometry.setAttribute('radius', radius);
+      geometry.setAttribute('theta-start', startAngle);
+      geometry.setAttribute('theta-length', angle);
+      geometry.setAttribute('material', `color: ${colors[index % colors.length]}; metalness: 0.3; roughness: 0.7`);
+      
+      // Add top and bottom faces
+      const topFace = document.createElement('a-circle');
+      topFace.setAttribute('radius', radius);
+      topFace.setAttribute('theta-start', startAngle);
+      topFace.setAttribute('theta-length', angle);
+      topFace.setAttribute('material', `color: ${colors[index % colors.length]}; metalness: 0.3; roughness: 0.7`);
+      topFace.setAttribute('position', `0 ${height/2} 0`);
+      topFace.setAttribute('rotation', '90 0 0');
+      
+      const bottomFace = document.createElement('a-circle');
+      bottomFace.setAttribute('radius', radius);
+      bottomFace.setAttribute('theta-start', startAngle);
+      bottomFace.setAttribute('theta-length', angle);
+      bottomFace.setAttribute('material', `color: ${colors[index % colors.length]}; metalness: 0.3; roughness: 0.7`);
+      bottomFace.setAttribute('position', `0 ${-height/2} 0`);
+      bottomFace.setAttribute('rotation', '-90 0 0');
+      
+      slice.appendChild(geometry);
+      slice.appendChild(topFace);
+      slice.appendChild(bottomFace);
+      
+      // Add hover effects
+      slice.setAttribute('animation__mouseenter', 'property: scale; to: 1.1 1.1 1.1; startEvents: mouseenter; dur: 200');
+      slice.setAttribute('animation__mouseleave', 'property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200');
+      
+      container.appendChild(slice);
+      
+      // Add labels
+      if (config.showLabels) {
+        const labelRadius = radius * 1.2;
+        const labelAngle = (midAngle * Math.PI) / 180;
+        const labelX = Math.cos(labelAngle) * labelRadius;
+        const labelZ = Math.sin(labelAngle) * labelRadius;
+        
+        // Create label container
+        const labelContainer = document.createElement('a-entity');
+        labelContainer.setAttribute('position', `${labelX} 0 ${labelZ}`);
+        labelContainer.setAttribute('rotation', `0 ${-midAngle} 0`);
+        
+        // Add label text
+        const text = document.createElement('a-entity');
+        text.setAttribute('text', `value: ${label}\n${(percentage * 100).toFixed(1)}%; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        text.setAttribute('position', '0 0 0');
+        
+        labelContainer.appendChild(text);
+        labelsContainer.appendChild(labelContainer);
+      }
+      
+      // Add value label on top
+      if (config.showValues) {
+        const valueRadius = radius * 0.7;
+        const valueAngle = (midAngle * Math.PI) / 180;
+        const valueX = Math.cos(valueAngle) * valueRadius;
+        const valueZ = Math.sin(valueAngle) * valueRadius;
+        
+        const valueText = document.createElement('a-entity');
+        valueText.setAttribute('text', `value: ${value.toFixed(1)}; color: #ffff00; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        valueText.setAttribute('position', `${valueX} ${height/2 + 0.1} ${valueZ}`);
+        valueText.setAttribute('rotation', `0 ${-midAngle} 0`);
+        valueText.setAttribute('scale', '0.5 0.5 0.5');
+        labelsContainer.appendChild(valueText);
+      }
+      
+      currentAngle = endAngle;
+    });
+    
+    // Add center point
+    const center = document.createElement('a-sphere');
+    center.setAttribute('position', '0 0 0');
+    center.setAttribute('radius', '0.1');
+    center.setAttribute('material', 'color: #ffffff; metalness: 0.5');
+    container.appendChild(center);
+  }
+  
+  function createSurfaceChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    
+    // Create a grid of points
+    const gridSize = Math.ceil(Math.sqrt(data.length));
+    const points = [];
+    
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        const index = i * gridSize + j;
+        if (index < data.length) {
+          const x = (i - gridSize/2) * 0.5;
+          const z = (j - gridSize/2) * 0.5;
+          const y = parseFloat(data[index][config.yCol]) || 0;
+          points.push({x, y, z});
+        }
+      }
+    }
+    
+    // Create surface mesh
+    points.forEach((point, index) => {
+      const sphere = document.createElement('a-sphere');
+      sphere.setAttribute('position', `${point.x} ${point.y} ${point.z}`);
+      sphere.setAttribute('radius', '0.1');
+      sphere.setAttribute('material', `color: ${colors[index % colors.length]}; metalness: 0.3`);
+      
+      // Add connecting lines
+      if (index % gridSize < gridSize - 1 && index + 1 < points.length) {
+        const line = createLine(point, points[index + 1]);
+        container.appendChild(line);
+      }
+      if (index + gridSize < points.length) {
+        const line = createLine(point, points[index + gridSize]);
+        container.appendChild(line);
+      }
+      
+      container.appendChild(sphere);
+    });
+  }
+  
+  function createNetworkChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    
+    // Create nodes
+    const nodes = new Set();
+    data.forEach(row => {
+      nodes.add(row[config.xCol]);
+      if (config.zCol) nodes.add(row[config.zCol]);
+    });
+    
+    const nodePositions = new Map();
+    const radius = 5;
+    let index = 0;
+    
+    nodes.forEach(node => {
+      const angle = (index * 2 * Math.PI) / nodes.size;
+      const x = radius * Math.cos(angle);
+      const z = radius * Math.sin(angle);
+      nodePositions.set(node, {x, y: 0, z});
+      
+      // Create node sphere
+      const sphere = document.createElement('a-sphere');
+      sphere.setAttribute('position', `${x} 0 ${z}`);
+      sphere.setAttribute('radius', '0.2');
+      sphere.setAttribute('material', `color: ${colors[index % colors.length]}; metalness: 0.3`);
+      container.appendChild(sphere);
+      
+      // Add label
+      if (config.showLabels) {
+        const text = document.createElement('a-entity');
+        text.setAttribute('text', `value: ${String(node)}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+        text.setAttribute('position', `${x} 0.3 ${z}`);
+        text.setAttribute('scale', '0.6 0.6 0.6');
+        labelsContainer.appendChild(text);
+      }
+      
+      index++;
+    });
+    
+    // Create connections
+    data.forEach(row => {
+      const from = nodePositions.get(row[config.xCol]);
+      const to = nodePositions.get(row[config.zCol]);
+      
+      if (from && to) {
+        const line = createLine(from, to);
+        container.appendChild(line);
+      }
+    });
+  }
+  
+  function createHeatmapChart(data) {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    
+    // Create a grid of cells
+    const gridSize = Math.ceil(Math.sqrt(data.length));
+    const maxValue = Math.max(...data.map(d => parseFloat(d[config.yCol]) || 0));
+    
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        const index = i * gridSize + j;
+        if (index < data.length) {
+          const x = (i - gridSize/2) * 0.5;
+          const z = (j - gridSize/2) * 0.5;
+          const value = parseFloat(data[index][config.yCol]) || 0;
+          const intensity = value / maxValue;
+          
+          // Create heat cell
+          const cell = document.createElement('a-box');
+          cell.setAttribute('position', `${x} 0 ${z}`);
+          cell.setAttribute('width', '0.4');
+          cell.setAttribute('height', '0.1');
+          cell.setAttribute('depth', '0.4');
+          cell.setAttribute('material', `color: ${getHeatColor(intensity)}; metalness: 0.3`);
+          container.appendChild(cell);
+          
+          // Add value label
+          if (config.showValues) {
+            const text = document.createElement('a-entity');
+            text.setAttribute('text', `value: ${value.toFixed(1)}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+            text.setAttribute('position', `${x} 0.2 ${z}`);
+            text.setAttribute('scale', '0.4 0.4 0.4');
+            labelsContainer.appendChild(text);
+          }
+        }
+      }
+    }
+  }
+  
+  function createLine(start, end) {
+    const line = document.createElement('a-cylinder');
+    const midPoint = {
+      x: (start.x + end.x) / 2,
+      y: (start.y + end.y) / 2,
+      z: (start.z + end.z) / 2
+    };
+    
+    const length = Math.sqrt(
+      Math.pow(end.x - start.x, 2) +
+      Math.pow(end.y - start.y, 2) +
+      Math.pow(end.z - start.z, 2)
+    );
+    
+    const direction = {
+      x: end.x - start.x,
+      y: end.y - start.y,
+      z: end.z - start.z
+    };
+    
+    const rotation = {
+      x: Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z)) * 180 / Math.PI,
+      y: Math.atan2(direction.x, direction.z) * 180 / Math.PI,
+      z: 0
+    };
+    
+    line.setAttribute('position', `${midPoint.x} ${midPoint.y} ${midPoint.z}`);
+    line.setAttribute('height', length);
+    line.setAttribute('radius', '0.02');
+    line.setAttribute('rotation', `${rotation.x} ${rotation.y} ${rotation.z}`);
+    line.setAttribute('material', 'color: #ffffff; opacity: 0.5');
+    
+    return line;
+  }
+  
+  function getHeatColor(intensity) {
+    // Convert intensity (0-1) to a color from blue (cold) to red (hot)
+    const r = Math.min(255, Math.floor(intensity * 510));
+    const b = Math.min(255, Math.floor((1 - intensity) * 510));
+    const g = Math.min(255, Math.floor(Math.min(intensity, 1 - intensity) * 510));
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  
+  function createLegend(data) {
+    const legendContainer = document.getElementById('legendContainer');
+    legendContainer.innerHTML = '';
+    
+    if (!config.colorCol) return;
+    
+    const colorGroups = [...new Set(data.map(d => d[config.colorCol]))];
+    
+    colorGroups.forEach((group, index) => {
+      const y = index * -0.5;
+      
+      // Color indicator
+      const indicator = document.createElement('a-box');
+      indicator.setAttribute('position', `0 ${y} 0`);
+      indicator.setAttribute('width', '0.3');
+      indicator.setAttribute('height', '0.3');
+      indicator.setAttribute('depth', '0.1');
+      indicator.setAttribute('material', `color: ${colors[index % colors.length]}`);
+      legendContainer.appendChild(indicator);
+      
+      // Label
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value: ${String(group)}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+      label.setAttribute('position', `0.5 ${y} 0`);
+      label.setAttribute('scale', '0.6 0.6 0.6');
+      legendContainer.appendChild(label);
+    });
+    
+    // Legend title
+    const title = document.createElement('a-entity');
+    title.setAttribute('text', `value: ${config.colorCol}; color: #ffff00; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+    title.setAttribute('position', '0 0.5 0');
+    title.setAttribute('scale', '0.8 0.8 0.8');
+    legendContainer.appendChild(title);
+  }
+  
+  function updateAxisLabels() {
+    if (config.xCol) {
+      document.getElementById('xAxisLabel').setAttribute('value', config.xCol);
+    }
+    if (config.yCol) {
+      document.getElementById('yAxisLabel').setAttribute('value', config.yCol);
+    }
+  }
+  
+  function updateTitle() {
+    const title = `${config.type.toUpperCase()}: ${config.yCol} vs ${config.xCol}`;
+    document.getElementById('chartTitle').setAttribute('value', title);
+  }
+  
+  function getColor(row, colorGroups, index) {
+    if (config.colorCol && colorGroups) {
+      const groupIndex = colorGroups.indexOf(row[config.colorCol]);
+      return colors[groupIndex % colors.length];
+    }
+    return colors[index % colors.length];
+  }
+  
+  function normalize(value, range) {
+    if (range[1] === range[0]) return 0.5;
+    return (value - range[0]) / (range[1] - range[0]);
+  }
+  
+  function clearChart() {
+    document.getElementById('dataContainer').innerHTML = '';
+    document.getElementById('labelsContainer').innerHTML = '';
+    document.getElementById('legendContainer').innerHTML = '';
+  }
+  
+  function zoomIn() {
+    if (currentZoom > minZoom) {
+      if (currentView === 'free') {
+        // Move camera rig incrementally along camera's world direction
+        const cameraRig = document.getElementById('cameraRig');
+        const camera = document.getElementById('camera');
+        const pos = cameraRig.getAttribute('position');
+        const worldDirection = new THREE.Vector3();
+        camera.object3D.getWorldDirection(worldDirection);
+        worldDirection.normalize();
+        // Move by a step (0.5 units)
+        const step = 0.5;
+        const newX = pos.x + worldDirection.x * -step; // -step for zoom in
+        const newY = pos.y + worldDirection.y * -step;
+        const newZ = pos.z + worldDirection.z * -step;
+        cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+        // Optionally update currentZoom for indicator
+        currentZoom = Math.max(minZoom, currentZoom - step);
+        updateZoomIndicator();
+      } else {
+        currentZoom = Math.max(minZoom, currentZoom - 0.5);
+        updateCameraPosition();
+        updateZoomIndicator();
+      }
+    }
+  }
+  
+  function zoomOut() {
+    if (currentZoom < maxZoom) {
+      if (currentView === 'free') {
+        // Move camera rig incrementally along camera's world direction
+        const cameraRig = document.getElementById('cameraRig');
+        const camera = document.getElementById('camera');
+        const pos = cameraRig.getAttribute('position');
+        const worldDirection = new THREE.Vector3();
+        camera.object3D.getWorldDirection(worldDirection);
+        worldDirection.normalize();
+        // Move by a step (0.5 units)
+        const step = 0.5;
+        const newX = pos.x + worldDirection.x * step; // +step for zoom out
+        const newY = pos.y + worldDirection.y * step;
+        const newZ = pos.z + worldDirection.z * step;
+        cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+        // Optionally update currentZoom for indicator
+        currentZoom = Math.min(maxZoom, currentZoom + step);
+        updateZoomIndicator();
+      } else {
+        currentZoom = Math.min(maxZoom, currentZoom + 0.5);
+        updateCameraPosition();
+        updateZoomIndicator();
+      }
+    }
+  }
+  
+  function updateCameraPosition() {
+    const cameraRig = document.getElementById('cameraRig');
+    const camera = document.getElementById('camera');
+    const currentPos = cameraRig.getAttribute('position');
+    const currentRot = cameraRig.getAttribute('rotation');
+
+    if (currentView === 'free') {
+      // Use THREE.js to get the camera's world direction
+      const worldDirection = new THREE.Vector3();
+      camera.object3D.getWorldDirection(worldDirection);
+      // Normalize and scale by currentZoom
+      worldDirection.normalize();
+      const newX = worldDirection.x * currentZoom;
+      const newY = 1.6 + worldDirection.y * currentZoom; // keep base height at 1.6
+      const newZ = worldDirection.z * currentZoom;
+      cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+    } else if (currentView === 'isometric') {
+      // Move along the (1,1,1) direction, scaled by currentZoom
+      const d = currentZoom / Math.sqrt(3);
+      cameraRig.setAttribute('position', `${d} ${d} ${d}`);
+    } else {
+      // For orthographic views, maintain the view direction but adjust distance
+      const viewConfig = viewPositions[currentView];
+      const [x, y, z] = viewConfig.position.split(' ').map(Number);
+      const scale = currentZoom / 8; // Scale relative to default zoom
+      if (currentView === 'top') {
+        cameraRig.setAttribute('position', `0 ${y * scale} 0`);
+      } else if (currentView === 'side') {
+        cameraRig.setAttribute('position', `${x * scale} ${y} 0`);
+      } else if (currentView === 'front') {
+        cameraRig.setAttribute('position', `0 ${y} ${z * scale}`);
+      }
+    }
+  }
+  
+  function resetView() {
+    // Reset camera and zoom
+    setView('free');
+    // Unload CSV and clear all data
+    currentData = [];
+    // Clear file input
+    document.getElementById('csvInput').value = '';
+    // Reset dropdowns to default
+    document.getElementById('chartType').selectedIndex = 0;
+    document.getElementById('xColumn').selectedIndex = 0;
+    document.getElementById('yColumn').selectedIndex = 0;
+    document.getElementById('zColumn').selectedIndex = 0;
+    document.getElementById('sizeColumn').selectedIndex = 0;
+    document.getElementById('colorColumn').selectedIndex = 0;
+    // Reset checkboxes
+    document.getElementById('showLabels').checked = true;
+    document.getElementById('showValues').checked = true;
+    // Hide function input if visible
+    document.getElementById('functionInputGroup').style.display = 'none';
+    // Clear chart and labels
+    clearChart();
+    // Reset axis and title labels
+    document.getElementById('xAxisLabel').setAttribute('troika-text', 'value: X Axis; color: #ff4757; align: center; fontSize: 0.7; outlineColor: black; outlineWidth: 0.03; maxWidth: 4');
+    document.getElementById('yAxisLabel').setAttribute('troika-text', 'value: Y Axis; color: #2ed573; align: center; fontSize: 0.7; outlineColor: black; outlineWidth: 0.03; maxWidth: 4');
+    document.getElementById('chartTitle').setAttribute('troika-text', 'value: VR Data Visualization; color: #ffffff; align: center; fontSize: 1.5; outlineColor: black; outlineWidth: 0.04; maxWidth: 10');
+    // Reset stats
+    updateStats();
+    // Hide error/loading
+    showError('');
+    showLoading(false);
+  }
+  
+  function toggleVRMode() {
+    const scene = document.getElementById('scene');
+    const indicator = document.getElementById('modeIndicator');
+    
+    if (!isVRMode) {
+      scene.enterVR();
+      indicator.textContent = 'VR Mode';
+      isVRMode = true;
+    } else {
+      scene.exitVR();
+      indicator.textContent = '3D Mode';
+      isVRMode = false;
+    }
+  }
+  
+  function updateStats() {
+    const statsEl = document.getElementById('stats');
+    if (!currentData.length) {
+      statsEl.innerHTML = 'Load CSV to see data';
+      return;
+    }
+    
+    const numRows = currentData.length;
+    const numCols = Object.keys(currentData[0]).length;
+    
+    statsEl.innerHTML = `Rows: ${numRows} | Columns: ${numCols} | Zoom: ${Math.round((maxZoom - currentZoom) / (maxZoom - minZoom) * 100)}%`;
+  }
+  
+  function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'block' : 'none';
+  }
+  
+  function showError(message) {
+    const errorEl = document.getElementById('error');
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+    setTimeout(() => errorEl.style.display = 'none', 3000);
+  }
+  
+  // Generate sample data for demo
+  function generateSampleData() {
+    const sampleData = [];
+    const categories = ['Tech', 'Health', 'Finance', 'Education', 'Sports'];
+    const regions = ['North', 'South', 'East', 'West'];
+    
+    for (let i = 0; i < 25; i++) {
+      sampleData.push({
+        ID: i + 1,
+        Product: `Product ${String.fromCharCode(65 + (i % 26))}`,
+        Category: categories[Math.floor(Math.random() * categories.length)],
+        Region: regions[Math.floor(Math.random() * regions.length)],
+        Sales: Math.floor(Math.random() * 1000) + 100,
+        Profit: Math.floor(Math.random() * 200) + 10,
+        Rating: (Math.random() * 4 + 1).toFixed(1)
+      });
+    }
+    
+    return sampleData;
+  }
+  
+  // Initialize with sample data
+  setTimeout(() => {
+    currentData = generateSampleData();
+    updateColumns();
+    updateStats();
+    
+    document.getElementById('xColumn').value = 'Category';
+    document.getElementById('yColumn').value = 'Sales';
+    document.getElementById('colorColumn').value = 'Region';
+    
+    generateChart();
+  }, 1000);
+  
+  // Update stats on zoom
+  setInterval(updateStats, 1000);
+  
+  // Dragging event handlers
+  function handleMouseDown(event) {
+    // Shift+Left or Middle Mouse
+    if (((event.shiftKey && event.button === 0) || event.button === 1) && currentView === 'free') {
+      isPanning = true;
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+      };
+      // Disable A-Frame controls during panning by removing attributes
+      const cameraEl = document.getElementById('camera');
+      cameraEl.removeAttribute('look-controls');
+      cameraEl.removeAttribute('wasd-controls');
+      event.preventDefault();
+    }
+  }
+
+  function handleMouseMove(event) {
+    if (!isPanning || currentView !== 'free') return; // Only pan in free view
+
+    const deltaMove = {
+      x: event.clientX - previousMousePosition.x,
+      y: event.clientY - previousMousePosition.y
+    };
+
+    const cameraRig = document.getElementById('cameraRig');
+    const camera = document.getElementById('camera');
+    const currentPos = cameraRig.getAttribute('position');
+    
+    // Get camera's world right and up vectors in one go
+    const worldRight = new THREE.Vector3();
+    const worldUp = new THREE.Vector3();
+    const worldForward = new THREE.Vector3(); 
+    camera.object3D.matrixWorld.extractBasis(worldRight, worldUp, worldForward);
+
+    // Pan speed factor - inversely proportional to zoom for consistent feel
+    // A smaller base value, scaled by zoom: when zoomed in (small currentZoom), pan slower. When zoomed out (large currentZoom), pan faster.
+    const panSpeed = 0.001 * currentZoom;
+
+    // Calculate new position based on camera's world orientation
+    // Inverted panning: deltaMove.x > 0 (drag right) -> camera moves left (negative right vector)
+    //                  deltaMove.y > 0 (drag down)  -> camera moves up (positive up vector)
+    const newX = currentPos.x - worldRight.x * deltaMove.x * panSpeed + worldUp.x * deltaMove.y * panSpeed;
+    const newY = currentPos.y - worldRight.y * deltaMove.x * panSpeed + worldUp.y * deltaMove.y * panSpeed;
+    const newZ = currentPos.z - worldRight.z * deltaMove.x * panSpeed + worldUp.z * deltaMove.y * panSpeed;
+    
+    cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+
+    previousMousePosition = {
+      x: event.clientX,
+      y: event.clientY
+    };
+
+    event.preventDefault();
+  }
+
+  function handleMouseUp(event) {
+    isPanning = false;
+    // Re-enable A-Frame controls after panning
+    const cameraEl = document.getElementById('camera');
+    cameraEl.setAttribute('look-controls', ''); // Re-add with default properties or restore previous if needed
+    cameraEl.setAttribute('wasd-controls', ''); // Re-add with default properties
+  }
+
+  // Touch event handlers for mobile panning (one finger drag)
+  function handleTouchStart(event) {
+    if (event.touches.length === 1 && currentView === 'free') {
+      isPanning = true;
+      previousMousePosition = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+      };
+      // Disable A-Frame controls during panning by removing attributes
+      const cameraEl = document.getElementById('camera');
+      cameraEl.removeAttribute('look-controls');
+      cameraEl.removeAttribute('wasd-controls');
+    }
+  }
+
+  function handleTouchMove(event) {
+    if (!isPanning || event.touches.length !== 1 || currentView !== 'free') return;
+
+    const deltaMove = {
+      x: event.touches[0].clientX - previousMousePosition.x,
+      y: event.touches[0].clientY - previousMousePosition.y
+    };
+
+    const cameraRig = document.getElementById('cameraRig');
+    const camera = document.getElementById('camera');
+    const currentPos = cameraRig.getAttribute('position');
+
+    // Get camera's world right and up vectors in one go
+    const worldRight = new THREE.Vector3();
+    const worldUp = new THREE.Vector3();
+    const worldForward = new THREE.Vector3(); 
+    camera.object3D.matrixWorld.extractBasis(worldRight, worldUp, worldForward);
+
+    // Pan speed factor - inversely proportional to zoom for consistent feel
+    const panSpeed = 0.001 * currentZoom;
+
+    // Calculate new position based on camera's world orientation
+    // Inverted panning: deltaMove.x > 0 (drag right) -> camera moves left (negative right vector)
+    //                  deltaMove.y > 0 (drag down)  -> camera moves up (positive up vector)
+    const newX = currentPos.x - worldRight.x * deltaMove.x * panSpeed + worldUp.x * deltaMove.y * panSpeed;
+    const newY = currentPos.y - worldRight.y * deltaMove.x * panSpeed + worldUp.y * deltaMove.y * panSpeed;
+    const newZ = currentPos.z - worldRight.z * deltaMove.x * panSpeed + worldUp.z * deltaMove.y * panSpeed;
+
+    cameraRig.setAttribute('position', `${newX} ${newY} ${newZ}`);
+
+    previousMousePosition = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY
+    };
+  }
+
+  function handleTouchEnd() {
+    isPanning = false;
+    // Re-enable A-Frame controls after panning
+    const cameraEl = document.getElementById('camera');
+    cameraEl.setAttribute('look-controls', '');
+    cameraEl.setAttribute('wasd-controls', '');
+  }
+  
+  // View mode variables
+  let currentView = 'free';
+  const viewPositions = {
+    front: { position: '0 1.6 8', rotation: '0 0 0' },
+    top: { position: '0 8 0', rotation: '-90 0 0' },
+    side: { position: '8 1.6 0', rotation: '0 90 0' },
+    isometric: { position: '8 8 8', rotation: '-35 45 0' },
+    free: { position: '0 1.6 8', rotation: '0 0 0' }
+  };
+
+  function setView(view) {
+    currentView = view;
+    const cameraRig = document.getElementById('cameraRig');
+    const viewConfig = viewPositions[view];
+    
+    // Update camera position and rotation
+    cameraRig.setAttribute('position', viewConfig.position);
+    cameraRig.setAttribute('rotation', viewConfig.rotation);
+    
+    // Update button states
+    document.querySelectorAll('.view-button').forEach(button => {
+      button.classList.remove('active');
+      if (button.textContent.toLowerCase().includes(view)) {
+        button.classList.add('active');
+      }
+    });
+
+    // Update mode indicator
+    const indicator = document.getElementById('modeIndicator');
+    indicator.textContent = `${view.charAt(0).toUpperCase() + view.slice(1)} View (Shift + Left Click or Middle Mouse to pan)`;
+
+    // Reset zoom for orthographic views
+    if (view !== 'free') {
+      currentZoom = 8;
+      updateCameraPosition();
+      updateZoomIndicator();
+    }
+  }
+  
+  // In script, add event listener for chartType to show/hide function input
+  document.getElementById('chartType').addEventListener('change', function() {
+    const isFunction = this.value === 'function';
+    document.getElementById('functionInputGroup').style.display = isFunction ? '' : 'none';
+  });
+  
+  // Add createFunctionPlot function
+  function createFunctionPlot() {
+    const container = document.getElementById('dataContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+    const funcInput = document.getElementById('functionInput').value;
+    const funcLines = funcInput.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    // Clear previous content
+    container.innerHTML = '';
+    labelsContainer.innerHTML = '';
+    
+    // Add axis value labels
+    const xMin = -10, xMax = 10;
+    const yMin = -10, yMax = 10;
+    
+    // X-axis value labels
+    for (let x = xMin; x <= xMax; x += 2) {
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value: ${x}; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+      label.setAttribute('position', `${x} -0.3 0`);
+      label.setAttribute('scale', '0.4 0.4 0.4');
+      labelsContainer.appendChild(label);
+    }
+    
+    // Y-axis value labels
+    for (let y = yMin; y <= yMax; y += 2) {
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value: ${y}; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf`);
+      label.setAttribute('position', `-0.3 ${y} 0`);
+      label.setAttribute('scale', '0.4 0.4 0.4');
+      labelsContainer.appendChild(label);
+    }
+    
+    // Colors for multiple plots
+    const plotColors = ['#ffeb3b', '#4ECDC4', '#FF6B6B', '#45B7D1', '#DDA0DD', '#FF8A65', '#A8E6CF', '#FFEAA7'];
+    funcLines.forEach((line, idx) => {
+      const color = plotColors[idx % plotColors.length];
+      if (line.includes('=')) {
+        createGeneralEquationPlot(line, color);
+      } else {
+        createSingleFunctionPlot(line, color);
+      }
+    });
+  }
+  
+  function createSingleFunctionPlot(funcStr, color='#ffeb3b') {
+    const container = document.getElementById('dataContainer');
+    const mathFunc = parseMathFunction(funcStr);
+    const points = [];
+    const xMin = -10, xMax = 10, step = 0.07;
+    
+    for (let x = xMin; x <= xMax; x += step) {
+      let y = 0;
+      try {
+        y = mathFunc(x);
+        // Only add points within reasonable bounds
+        if (y >= -20 && y <= 20) {
+          points.push({x, y, z: 0});
+        }
+      } catch (e) {
+        // Skip points where function is undefined
+        continue;
+      }
+    }
+    
+    // Draw as a smooth line using cylinders between each pair
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i+1];
+      const line = createLine(p1, p2);
+      line.setAttribute('material', `color: ${color}; metalness: 0.3`);
+      container.appendChild(line);
+    }
+    
+    // Add points at regular intervals
+    points.forEach((p, idx) => {
+      if (idx % 50 === 0) {
+        const pt = document.createElement('a-sphere');
+        pt.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+        pt.setAttribute('radius', '0.08');
+        pt.setAttribute('material', `color: ${color}; metalness: 0.3`);
+        container.appendChild(pt);
+      }
+    });
+  }
+  
+  function createGeneralEquationPlot(equation, color='#ffeb3b') {
+    const container = document.getElementById('dataContainer');
+    const points = [];
+    const xMin = -10, xMax = 10, step = 0.04; // smaller step for smoother curves
+    const yMin = -10, yMax = 10;
+    
+    // Preprocess: replace ^ with ** for JS power
+    equation = equation.replace(/\^/g, '**');
+    
+    // Parse the equation
+    const [leftSideRaw, rightSideRaw] = equation.split('=');
+    if (!leftSideRaw || !rightSideRaw) return;
+    const leftSide = leftSideRaw.trim();
+    const rightSide = rightSideRaw.trim();
+    
+    // Robust detection for y=... or x=... (allow spaces, case-insensitive)
+    if (/^y\s*$/i.test(leftSide)) {
+      // y = f(x)
+      const mathFunc = parseMathFunction(rightSide);
+      for (let x = xMin; x <= xMax; x += step) {
+        let y;
+        try {
+          y = mathFunc(x);
+          if (isFinite(y) && y >= yMin && y <= yMax) {
+            points.push({x, y, z: 0});
+          }
+        } catch (e) { continue; }
+      }
+    } else if (/^x\s*$/i.test(leftSide)) {
+      // x = f(y)
+      const mathFunc = parseMathFunction(rightSide);
+      for (let y = yMin; y <= yMax; y += step) {
+        let x;
+        try {
+          x = mathFunc(y);
+          if (isFinite(x) && x >= xMin && x <= xMax) {
+            points.push({x, y, z: 0});
+          }
+        } catch (e) { continue; }
+      }
+    } else {
+      // Implicit equation: grid search
+      const errorMargin = 0.03; // smaller margin for accuracy
+      const seen = new Set();
+      for (let x = xMin; x <= xMax; x += step) {
+        for (let y = yMin; y <= yMax; y += step) {
+          try {
+            // Replace ^ with ** in both sides
+            const leftEval = eval(leftSide.replace(/\^/g, '**').replace(/x/g, `(${x})`).replace(/y/g, `(${y})`));
+            const rightEval = eval(rightSide.replace(/\^/g, '**').replace(/x/g, `(${x})`).replace(/y/g, `(${y})`));
+            if (Math.abs(leftEval - rightEval) < errorMargin) {
+              const key = `${x.toFixed(2)},${y.toFixed(2)}`;
+              if (!seen.has(key)) {
+                points.push({x, y, z: 0});
+                seen.add(key);
+              }
+            }
+          } catch (e) { continue; }
+        }
+      }
+    }
+    // Draw points
+    points.forEach(point => {
+      const pt = document.createElement('a-sphere');
+      pt.setAttribute('position', `${point.x} ${point.y} ${point.z}`);
+      pt.setAttribute('radius', '0.05');
+      pt.setAttribute('material', `color: ${color}; metalness: 0.3`);
+      container.appendChild(pt);
+    });
+  }
+  
+  function parseMathFunction(str) {
+    // Only allow math functions and x
+    const allowed = ['sin','cos','tan','asin','acos','atan','sqrt','abs','log','exp','pow','PI','E','x'];
+    const safeStr = str.replace(/[^a-zA-Z0-9_\.\+\-\*\/\(\)\, ]/g, '');
+    
+    // Define additional trigonometric functions
+    const sec = (x) => 1 / Math.cos(x);
+    const cosec = (x) => 1 / Math.sin(x);
+    const cot = (x) => 1 / Math.tan(x);
+    
+    // eslint-disable-next-line no-new-func
+    return new Function('x', `
+      with (Math) {
+        const sec = (x) => 1 / cos(x);
+        const cosec = (x) => 1 / sin(x);
+        const cot = (x) => 1 / tan(x);
+        return ${safeStr};
+      }
+    `);
+  }
+  
+  console.log('Enhanced VR Data Visualizer Ready - Now with Zoom, Labels & VR Toggle!');
+</script>
+</body>
+</html>
