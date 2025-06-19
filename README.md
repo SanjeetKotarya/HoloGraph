@@ -3,6 +3,7 @@
 VR Data Visualizer is an interactive data visualization tool designed for mobile VR platforms such as Google Cardboard. It transforms complex datasets into immersive, explorable 3D environments using WebVR and WebGL technologies. The goal is to make data comprehension more intuitive and engaging through spatial interaction and depth perception in virtual reality.
 
 > 🚧 Note: This project is currently under active development as part of my Dual Degree Project (DDP) at IIT Madras.
+![image](https://github.com/user-attachments/assets/3019a37f-1dd4-4361-8fc4-e7026f5789cc)
 
  🎯 Key Features (Planned & In Progress):
 
