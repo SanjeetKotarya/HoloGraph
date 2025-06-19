@@ -4,6 +4,8 @@ VR Data Visualizer is an interactive data visualization tool designed for mobile
 
 > 🚧 Note: This project is currently under active development as part of my Dual Degree Project (DDP) at IIT Madras.
 ![image](https://github.com/user-attachments/assets/3019a37f-1dd4-4361-8fc4-e7026f5789cc)
+![image](https://github.com/user-attachments/assets/518c2238-8e54-4715-96d4-1a29a6d131f7)
+![image](https://github.com/user-attachments/assets/1ec3bc80-b4e7-448f-a5f1-cfca496ecc7a)
 
  🎯 Key Features (Planned & In Progress):
 
