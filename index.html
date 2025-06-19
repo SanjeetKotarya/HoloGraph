@@ -111,12 +111,20 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         </div>
 
         <div class="control-group">
-          <label>
-            <input type="checkbox" id="showLabels" checked /> Show Labels
-          </label>
-          <label>
-            <input type="checkbox" id="showValues" checked /> Show Values
-          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="showLabels" checked /> Show Labels
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="showValues" checked /> Show Values
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="showGridLines" checked /> Show Grid Lines
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="showAxisLines" checked /> Show Axis Lines
+            </label>
+          </div>
         </div>
 
         <button class="button" onclick="generateChart()">Generate</button>
@@ -124,6 +132,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         <button class="button vr-button" onclick="toggleVRMode()">
           Toggle VR
         </button>
+        <button class="button" id="toggleCameraBgBtn" style="margin-top: 8px;">Camera Background</button>
 
         <div class="loading" id="loading">Loading...</div>
         <div class="error" id="error"></div>
@@ -155,6 +164,10 @@ sin(x^2 + y^2) - cos(x - y)</textarea
     </div>
 
     <a-scene id="scene" background="color: #1a1a2e" vr-mode-ui="enabled: false">
+      <a-assets>
+        <!-- No need for cameraVideoAsset -->
+      </a-assets>
+      <a-sky id="cameraSky" visible="false"></a-sky>
       <!-- Enhanced lighting -->
       <a-light type="ambient" color="#404040"></a-light>
       <a-light
@@ -258,6 +271,8 @@ sin(x^2 + y^2) - cos(x - y)</textarea
       <!-- Legend container -->
       <a-entity id="legendContainer" position="-5 2 -2"></a-entity>
     </a-scene>
+
+    <video id="cameraVideo" autoplay playsinline style="display:none;"></video>
 
     <script>
       // Global variables
@@ -369,6 +384,41 @@ sin(x^2 + y^2) - cos(x - y)</textarea
 
         // Draw XZ floor grid
         createXZFloorGrid();
+
+        // Grid/Axis visibility toggles
+        document.getElementById('showGridLines').addEventListener('change', function() {
+          const grid = document.getElementById('floorGrid');
+          grid.setAttribute('visible', this.checked);
+        });
+        document.getElementById('showAxisLines').addEventListener('change', function() {
+          // The three axis cylinders are the first three children of axesContainer
+          const axes = document.getElementById('axesContainer');
+          // X, Y, Z axis cylinders
+          const xAxis = axes.children[0];
+          const yAxis = axes.children[2];
+          const zAxis = axes.children[4];
+          xAxis.setAttribute('visible', this.checked);
+          yAxis.setAttribute('visible', this.checked);
+          zAxis.setAttribute('visible', this.checked);
+        });
+        // Set initial visibility (in case)
+        document.getElementById('floorGrid').setAttribute('visible', true);
+        const axes = document.getElementById('axesContainer');
+        axes.children[0].setAttribute('visible', true);
+        axes.children[2].setAttribute('visible', true);
+        axes.children[4].setAttribute('visible', true);
+
+        // Live toggle for Show Labels and Show Values
+        document.getElementById('showLabels').addEventListener('change', function() {
+          document.querySelectorAll('#labelsContainer [data-label-type="label"]').forEach(el => {
+            el.setAttribute('visible', this.checked);
+          });
+        });
+        document.getElementById('showValues').addEventListener('change', function() {
+          document.querySelectorAll('#labelsContainer [data-label-type="value"]').forEach(el => {
+            el.setAttribute('visible', this.checked);
+          });
+        });
       });
 
       // Mouse wheel zoom with smoother control
@@ -605,6 +655,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             );
             label.setAttribute("position", `${x} -0.3 ${z}`);
             label.setAttribute("scale", "0.6 0.6 0.6");
+            label.setAttribute('data-label-type', 'label');
             labelsContainer.appendChild(label);
           }
 
@@ -619,6 +670,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             );
             valueLabel.setAttribute("position", `${x} ${height + 0.2} ${z}`);
             valueLabel.setAttribute("scale", "0.5 0.5 0.5");
+            valueLabel.setAttribute('data-label-type', 'value');
             labelsContainer.appendChild(valueLabel);
           }
         });
@@ -677,6 +729,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             valueLabel.setAttribute("position", `${x} ${y + 0.3} ${z}`);
             valueLabel.setAttribute("scale", "0.4 0.4 0.4");
             valueLabel.setAttribute("visible", "false");
+            valueLabel.setAttribute('data-label-type', 'value');
 
             sphere.setAttribute(
               "animation__showlabel",
@@ -740,6 +793,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             );
             valueLabel.setAttribute("position", `${x} ${y + 0.2} 0.1`);
             valueLabel.setAttribute("scale", "0.4 0.4 0.4");
+            valueLabel.setAttribute('data-label-type', 'value');
             labelsContainer.appendChild(valueLabel);
           }
 
@@ -878,7 +932,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
               )}%; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`
             );
             text.setAttribute("position", "0 0 0");
-
+            text.setAttribute('data-label-type', 'label');
             labelContainer.appendChild(text);
             labelsContainer.appendChild(labelContainer);
           }
@@ -903,6 +957,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             );
             valueText.setAttribute("rotation", `0 ${-midAngle} 0`);
             valueText.setAttribute("scale", "0.5 0.5 0.5");
+            valueText.setAttribute('data-label-type', 'value');
             labelsContainer.appendChild(valueText);
           }
 
@@ -1003,6 +1058,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             );
             text.setAttribute("position", `${x} 0.3 ${z}`);
             text.setAttribute("scale", "0.6 0.6 0.6");
+            text.setAttribute('data-label-type', 'label');
             labelsContainer.appendChild(text);
           }
 
@@ -1063,6 +1119,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
                 );
                 text.setAttribute("position", `${x} 0.2 ${z}`);
                 text.setAttribute("scale", "0.4 0.4 0.4");
+                text.setAttribute('data-label-type', 'value');
                 labelsContainer.appendChild(text);
               }
             }
@@ -1162,6 +1219,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           );
           label.setAttribute("position", `0.5 ${y} 0`);
           label.setAttribute("scale", "0.6 0.6 0.6");
+          label.setAttribute('data-label-type', 'label');
           legendContainer.appendChild(label);
         });
 
@@ -1173,6 +1231,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         );
         title.setAttribute("position", "0 0.5 0");
         title.setAttribute("scale", "0.8 0.8 0.8");
+        title.setAttribute('data-label-type', 'label');
         legendContainer.appendChild(title);
       }
 
@@ -1748,6 +1807,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           );
           label.setAttribute("position", `${x} -0.3 0`);
           label.setAttribute("scale", "0.4 0.4 0.4");
+          label.setAttribute('data-label-type', 'label');
           labelsContainer.appendChild(label);
         }
 
@@ -2243,6 +2303,38 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           gridEntity.appendChild(line);
         }
       }
+
+      let isCameraBg = false;
+      let cameraStream = null;
+      const cameraVideo = document.getElementById('cameraVideo');
+      const cameraSky = document.getElementById('cameraSky');
+      const scene = document.getElementById('scene');
+      const toggleCameraBgBtn = document.getElementById('toggleCameraBgBtn');
+
+      toggleCameraBgBtn.addEventListener('click', async function () {
+        if (!isCameraBg) {
+          // Request camera access
+          try {
+            if (!cameraStream) {
+              cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+              cameraVideo.srcObject = cameraStream;
+              await cameraVideo.play();
+            }
+            cameraSky.setAttribute('src', '#cameraVideo');
+            cameraSky.setAttribute('visible', 'true');
+            scene.setAttribute('background', 'color: transparent');
+            isCameraBg = true;
+            toggleCameraBgBtn.textContent = 'Solid Background';
+          } catch (err) {
+            showError('Camera access denied or not available.');
+          }
+        } else {
+          cameraSky.setAttribute('visible', 'false');
+          scene.setAttribute('background', 'color: #1a1a2e');
+          isCameraBg = false;
+          toggleCameraBgBtn.textContent = 'Camera Background';
+        }
+      });
     </script>
   </body>
 </html>
