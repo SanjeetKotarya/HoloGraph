@@ -130,10 +130,16 @@ sin(x^2 + y^2) - cos(x - y)</textarea
 
         <button class="button" onclick="generateChart()">Generate</button>
         <button class="button" onclick="resetView()">Reset View</button>
-        <button class="button vr-button" onclick="toggleVRMode()">
-          Toggle VR
+        <button class="icon-button vr-button" onclick="toggleVRMode()" aria-label="Toggle VR Mode" title="Toggle VR Mode" style="background: transparent; border: none; box-shadow: none; padding: 6px 12px;">
+          <svg width="28" height="18" viewBox="0 0 28 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
+            <rect x="1" y="3" width="26" height="14" rx="3" fill="#F4B400" stroke="#B8860B" stroke-width="1.5"/>
+            <circle cx="7.5" cy="10" r="2.5" fill="#fff" stroke="#B8860B" stroke-width="1.2"/>
+            <circle cx="20.5" cy="10" r="2.5" fill="#fff" stroke="#B8860B" stroke-width="1.2"/>
+            <rect x="6" y="7" width="3" height="3" rx="1.2" fill="#B8860B"/>
+            <rect x="19" y="7" width="3" height="3" rx="1.2" fill="#B8860B"/>
+          </svg>
         </button>
-        <button class="button" id="toggleCameraBgBtn" style="margin-top: 8px;">Camera Background</button>
+        <button class="icon-button" id="toggleCameraBgBtn" style="background: transparent; border: none; box-shadow: none; margin-top: 8px; font-size: 20px; padding: 6px 12px;" aria-label="Camera Background" title="Camera Background">📷</button>
 
         <div class="loading" id="loading">Loading...</div>
         <div class="error" id="error"></div>
@@ -273,7 +279,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
       <a-entity id="legendContainer" position="-5 2 -2"></a-entity>
 
       <!-- VR Control Panel (HUD, fixed to camera, top center) -->
-      <a-entity id="vrControlPanel" visible="false" position="0 1.5 -2">
+      <a-entity id="vrControlPanel" visible="false" position="0 6 -2">
         <!-- Panel background -->
         <a-plane width="2.8" height="3.2" color="#222" opacity="0.92" position="0 0 0"></a-plane>
         <!-- Title -->
@@ -509,7 +515,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             updateColumns();
             updateStats();
             showLoading(false);
-
+            updateVRPanel(); // <-- Add this line
             // Show unload button when file is loaded
             document.getElementById("unloadButton").style.display = "flex";
 
@@ -1555,11 +1561,10 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         currentData = generateSampleData();
         updateColumns();
         updateStats();
-
+        updateVRPanel(); // <-- Add this line
         document.getElementById("xColumn").value = "Category";
         document.getElementById("yColumn").value = "Sales";
         document.getElementById("colorColumn").value = "Region";
-
         generateChart();
       }, 1000);
 
@@ -2370,7 +2375,6 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             cameraSky.setAttribute('visible', 'true');
             scene.setAttribute('background', 'color: transparent');
             isCameraBg = true;
-            toggleCameraBgBtn.textContent = 'Solid Background';
           } catch (err) {
             showError('Camera access denied or not available.');
           }
@@ -2378,7 +2382,6 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           cameraSky.setAttribute('visible', 'false');
           scene.setAttribute('background', 'color: #1a1a2e');
           isCameraBg = false;
-          toggleCameraBgBtn.textContent = 'Camera Background';
         }
       });
 
@@ -2401,62 +2404,78 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         });
       }
 
-      // Helper to create VR dropdowns
-      function createVRDropdown(entityId, options, selectedValue, onChange) {
-        const dropdown = document.getElementById(entityId);
-        dropdown.innerHTML = '';
-        options.forEach((opt, idx) => {
-          const isSelected = opt === selectedValue;
-          const btn = document.createElement('a-box');
-          btn.setAttribute('width', '1.0');
-          btn.setAttribute('height', '0.22');
-          btn.setAttribute('depth', '0.03');
-          btn.setAttribute('color', isSelected ? '#119dff' : '#444');
-          btn.setAttribute('position', `0 ${-idx * 0.28} 0`);
-          btn.setAttribute('class', 'vr-dropdown-option');
-          btn.setAttribute('data-value', opt);
-          btn.setAttribute('opacity', isSelected ? '1' : '0.7');
-          // Gaze activation
-          addGazeActivation(btn, () => onChange(opt));
-          // Label
-          const label = document.createElement('a-text');
-          label.setAttribute('value', opt);
-          label.setAttribute('color', '#fff');
-          label.setAttribute('width', '0.8');
-          label.setAttribute('align', 'center');
-          label.setAttribute('position', `0 ${-idx * 0.28} 0.02`);
-          dropdown.appendChild(btn);
-          dropdown.appendChild(label);
-        });
-      }
+      // Helper to create VR horizontal selector (arrows + label)
+      function createVRSelector(entityId, options, selectedValue, onChange) {
+        const container = document.getElementById(entityId);
+        container.innerHTML = '';
+        if (!options.length) return;
+        let idx = options.indexOf(selectedValue);
+        if (idx === -1) idx = 0;
 
-      // Helper to create VR toggles
-      function createVRToggle(entityId, label, checked, onChange) {
-        const toggle = document.getElementById(entityId);
-        toggle.innerHTML = '';
-        const box = document.createElement('a-box');
-        box.setAttribute('width', '0.22');
-        box.setAttribute('height', '0.22');
-        box.setAttribute('depth', '0.03');
-        box.setAttribute('color', checked ? '#00b894' : '#888');
-        box.setAttribute('opacity', checked ? '1' : '0.7');
-        box.setAttribute('position', '0 0 0');
-        box.setAttribute('class', 'vr-toggle-box');
-        // Gaze activation
-        addGazeActivation(box, () => onChange(!checked));
-        toggle.appendChild(box);
-        const text = document.createElement('a-text');
-        text.setAttribute('value', label);
-        text.setAttribute('color', '#fff');
-        text.setAttribute('width', '0.8');
-        text.setAttribute('align', 'left');
-        text.setAttribute('position', '0.22 0 0.02');
-        toggle.appendChild(text);
+        // Left arrow
+        const leftArrow = document.createElement('a-box');
+        leftArrow.setAttribute('width', '0.18');
+        leftArrow.setAttribute('height', '0.18');
+        leftArrow.setAttribute('depth', '0.03');
+        leftArrow.setAttribute('color', '#119dff');
+        leftArrow.setAttribute('position', '-0.35 0 0');
+        leftArrow.setAttribute('class', 'vr-arrow');
+        addGazeActivation(leftArrow, () => {
+          let newIdx = (idx - 1 + options.length) % options.length;
+          onChange(options[newIdx]);
+        }, 1200);
+        const leftText = document.createElement('a-text');
+        leftText.setAttribute('value', '<');
+        leftText.setAttribute('color', '#fff');
+        leftText.setAttribute('width', '0.5');
+        leftText.setAttribute('align', 'center');
+        leftText.setAttribute('position', '-0.35 0 0.02');
+        container.appendChild(leftArrow);
+        container.appendChild(leftText);
+
+        // Label
+        const labelBox = document.createElement('a-box');
+        labelBox.setAttribute('width', '0.7');
+        labelBox.setAttribute('height', '0.18');
+        labelBox.setAttribute('depth', '0.03');
+        labelBox.setAttribute('color', '#444');
+        labelBox.setAttribute('opacity', '0.95');
+        labelBox.setAttribute('position', '0 0 0');
+        container.appendChild(labelBox);
+        const label = document.createElement('a-text');
+        label.setAttribute('value', options[idx]);
+        label.setAttribute('color', '#fff');
+        label.setAttribute('width', '0.7');
+        label.setAttribute('align', 'center');
+        label.setAttribute('position', '0 0 0.02');
+        container.appendChild(label);
+
+        // Right arrow
+        const rightArrow = document.createElement('a-box');
+        rightArrow.setAttribute('width', '0.18');
+        rightArrow.setAttribute('height', '0.18');
+        rightArrow.setAttribute('depth', '0.03');
+        rightArrow.setAttribute('color', '#119dff');
+        rightArrow.setAttribute('position', '0.35 0 0');
+        rightArrow.setAttribute('class', 'vr-arrow');
+        addGazeActivation(rightArrow, () => {
+          let newIdx = (idx + 1) % options.length;
+          onChange(options[newIdx]);
+        }, 1200);
+        const rightText = document.createElement('a-text');
+        rightText.setAttribute('value', '>');
+        rightText.setAttribute('color', '#fff');
+        rightText.setAttribute('width', '0.5');
+        rightText.setAttribute('align', 'center');
+        rightText.setAttribute('position', '0.35 0 0.02');
+        container.appendChild(rightArrow);
+        container.appendChild(rightText);
       }
 
       // Show/hide VR panel on VR mode change
       scene.addEventListener('enter-vr', () => {
         document.getElementById('vrControlPanel').setAttribute('visible', 'true');
+        updateVRPanel(); // Ensure panel is updated immediately on entering VR
       });
       scene.addEventListener('exit-vr', () => {
         document.getElementById('vrControlPanel').setAttribute('visible', 'false');
@@ -2478,7 +2497,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         const chartTypeValues = [
           'bar', 'scatter', 'line', 'pie', 'surface', 'network', 'heatmap', 'function'
         ];
-        createVRDropdown('vrChartTypeDropdown', chartTypes, chartTypes[chartTypeValues.indexOf(config.type)], (val) => {
+        createVRSelector('vrChartTypeDropdown', chartTypes, chartTypes[chartTypeValues.indexOf(config.type)], (val) => {
           const idx = chartTypes.indexOf(val);
           config.type = chartTypeValues[idx];
           document.getElementById('chartType').value = config.type;
@@ -2486,33 +2505,40 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           updateVRPanel();
         });
         // X, Y, Z, Size, Color columns
-        const columns = currentData[0] ? Object.keys(currentData[0]) : [];
-        const numericColumns = columns.filter(col => typeof currentData[0][col] === 'number' || !isNaN(parseFloat(currentData[0][col])));
-        createVRDropdown('vrXColumnDropdown', columns, config.xCol, (val) => {
+        let columns = [];
+        let numericColumns = [];
+        if (currentData[0]) {
+          columns = Object.keys(currentData[0]);
+          numericColumns = columns.filter(col => typeof currentData[0][col] === 'number' || !isNaN(parseFloat(currentData[0][col])));
+        } else {
+          columns = ['No Data'];
+          numericColumns = ['No Data'];
+        }
+        createVRSelector('vrXColumnDropdown', columns, config.xCol || columns[0], (val) => {
           config.xCol = val;
           document.getElementById('xColumn').value = val;
           generateChart();
           updateVRPanel();
         });
-        createVRDropdown('vrYColumnDropdown', columns, config.yCol, (val) => {
+        createVRSelector('vrYColumnDropdown', columns, config.yCol || columns[0], (val) => {
           config.yCol = val;
           document.getElementById('yColumn').value = val;
           generateChart();
           updateVRPanel();
         });
-        createVRDropdown('vrZColumnDropdown', ['None', ...numericColumns], config.zCol || 'None', (val) => {
+        createVRSelector('vrZColumnDropdown', ['None', ...numericColumns], config.zCol || 'None', (val) => {
           config.zCol = val === 'None' ? null : val;
           document.getElementById('zColumn').value = val;
           generateChart();
           updateVRPanel();
         });
-        createVRDropdown('vrSizeColumnDropdown', ['None', ...numericColumns], config.sizeCol || 'None', (val) => {
+        createVRSelector('vrSizeColumnDropdown', ['None', ...numericColumns], config.sizeCol || 'None', (val) => {
           config.sizeCol = val === 'None' ? null : val;
           document.getElementById('sizeColumn').value = val;
           generateChart();
           updateVRPanel();
         });
-        createVRDropdown('vrColorColumnDropdown', ['None', ...columns], config.colorCol || 'None', (val) => {
+        createVRSelector('vrColorColumnDropdown', ['None', ...columns], config.colorCol || 'None', (val) => {
           config.colorCol = val === 'None' ? null : val;
           document.getElementById('colorColumn').value = val;
           generateChart();
@@ -2549,21 +2575,21 @@ sin(x^2 + y^2) - cos(x - y)</textarea
         addGazeActivation(document.getElementById('vrGenerateBtn'), () => {
           generateChart();
           updateVRPanel();
-        });
+        }, 1000);
         // Reset
         addGazeActivation(document.getElementById('vrResetBtn'), () => {
           resetView();
           updateVRPanel();
-        });
+        }, 1000);
         // Exit VR
         addGazeActivation(document.getElementById('vrToggleVRBtn'), () => {
           scene.exitVR();
-        });
+        }, 1000);
         // Camera BG
         addGazeActivation(document.getElementById('vrCameraBgBtn'), () => {
           toggleCameraBgBtn.click();
           updateVRPanel();
-        });
+        }, 1000);
       }, 1500);
 
       // Update VR panel whenever data/config changes
