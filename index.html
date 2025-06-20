@@ -271,6 +271,53 @@ sin(x^2 + y^2) - cos(x - y)</textarea
 
       <!-- Legend container -->
       <a-entity id="legendContainer" position="-5 2 -2"></a-entity>
+
+      <!-- VR Control Panel (HUD, fixed to camera, top center) -->
+      <a-entity id="vrControlPanel" visible="false" position="0 1.5 -2">
+        <!-- Panel background -->
+        <a-plane width="2.8" height="3.2" color="#222" opacity="0.92" position="0 0 0"></a-plane>
+        <!-- Title -->
+        <a-text value="VR Controls" color="#fff" width="2.2" align="center" position="0 1.45 0.01"></a-text>
+        <!-- Chart Type Dropdown -->
+        <a-text value="Chart Type:" color="#fff" width="1.8" align="left" position="-1.2 1.1 0.01"></a-text>
+        <a-entity id="vrChartTypeDropdown" class="vr-dropdown" position="0.5 1.1 0.01"></a-entity>
+        <!-- X Column Dropdown -->
+        <a-text value="X Column:" color="#fff" width="1.8" align="left" position="-1.2 0.8 0.01"></a-text>
+        <a-entity id="vrXColumnDropdown" class="vr-dropdown" position="0.5 0.8 0.01"></a-entity>
+        <!-- Y Column Dropdown -->
+        <a-text value="Y Column:" color="#fff" width="1.8" align="left" position="-1.2 0.5 0.01"></a-text>
+        <a-entity id="vrYColumnDropdown" class="vr-dropdown" position="0.5 0.5 0.01"></a-entity>
+        <!-- Z Column Dropdown -->
+        <a-text value="Z Column:" color="#fff" width="1.8" align="left" position="-1.2 0.2 0.01"></a-text>
+        <a-entity id="vrZColumnDropdown" class="vr-dropdown" position="0.5 0.2 0.01"></a-entity>
+        <!-- Size Column Dropdown -->
+        <a-text value="Size Column:" color="#fff" width="1.8" align="left" position="-1.2 -0.1 0.01"></a-text>
+        <a-entity id="vrSizeColumnDropdown" class="vr-dropdown" position="0.5 -0.1 0.01"></a-entity>
+        <!-- Color Column Dropdown -->
+        <a-text value="Color Group:" color="#fff" width="1.8" align="left" position="-1.2 -0.4 0.01"></a-text>
+        <a-entity id="vrColorColumnDropdown" class="vr-dropdown" position="0.5 -0.4 0.01"></a-entity>
+        <!-- Toggles -->
+        <a-entity id="vrToggles" position="0 -0.8 0.01">
+          <a-entity id="vrShowLabelsToggle" class="vr-toggle" position="-1.0 0 0"></a-entity>
+          <a-entity id="vrShowValuesToggle" class="vr-toggle" position="-0.3 0 0"></a-entity>
+          <a-entity id="vrShowGridLinesToggle" class="vr-toggle" position="0.4 0 0"></a-entity>
+          <a-entity id="vrShowAxisLinesToggle" class="vr-toggle" position="1.1 0 0"></a-entity>
+        </a-entity>
+        <!-- Action Buttons -->
+        <a-entity id="vrButtons" position="0 -1.35 0.01">
+          <a-box id="vrGenerateBtn" width="1.1" height="0.28" depth="0.04" color="#119dff" position="-0.7 0 0"></a-box>
+          <a-text value="Generate" color="#fff" width="0.9" align="center" position="-0.7 0 0.03"></a-text>
+          <a-box id="vrResetBtn" width="1.1" height="0.28" depth="0.04" color="#888" position="0.7 0 0"></a-box>
+          <a-text value="Reset" color="#fff" width="0.9" align="center" position="0.7 0 0.03"></a-text>
+        </a-entity>
+        <!-- VR/Camera BG Buttons -->
+        <a-entity id="vrExtraButtons" position="0 -1.75 0.01">
+          <a-box id="vrToggleVRBtn" width="1.1" height="0.28" depth="0.04" color="#00b894" position="-0.7 0 0"></a-box>
+          <a-text value="Exit VR" color="#fff" width="0.9" align="center" position="-0.7 0 0.03"></a-text>
+          <a-box id="vrCameraBgBtn" width="1.1" height="0.28" depth="0.04" color="#6c5ce7" position="0.7 0 0"></a-box>
+          <a-text value="Camera BG" color="#fff" width="0.9" align="center" position="0.7 0 0.03"></a-text>
+        </a-entity>
+      </a-entity>
     </a-scene>
 
     <video id="cameraVideo" autoplay playsinline style="display:none;"></video>
@@ -749,29 +796,43 @@ sin(x^2 + y^2) - cos(x - y)</textarea
       function createLineChart(data) {
         const container = document.getElementById("dataContainer");
         const labelsContainer = document.getElementById("labelsContainer");
-        const sortedData = [...data].sort(
-          (a, b) =>
-            (parseFloat(a[config.xCol]) || 0) -
-            (parseFloat(b[config.xCol]) || 0)
-        );
+        // Detect if x-values are numeric
+        const isXNumeric = data.every(d => !isNaN(parseFloat(d[config.xCol])) && isFinite(d[config.xCol]));
+        let xPositions = [];
+        let xLabels = [];
+        let sortedData;
 
-        const xValues = sortedData.map((d) => parseFloat(d[config.xCol]) || 0);
-        const yValues = sortedData.map((d) => parseFloat(d[config.yCol]) || 0);
-        const xRange = [Math.min(...xValues), Math.max(...xValues)];
+        if (isXNumeric) {
+          sortedData = [...data].sort((a, b) => (parseFloat(a[config.xCol]) || 0) - (parseFloat(b[config.xCol]) || 0));
+          const xValues = sortedData.map(d => parseFloat(d[config.xCol]) || 0);
+          const xRange = [Math.min(...xValues), Math.max(...xValues)];
+          xPositions = xValues.map(xVal => normalize(xVal, xRange) * 8 - 4);
+          xLabels = sortedData.map(d => d[config.xCol]);
+        } else {
+          // Categorical or date x-values: use index for spacing
+          sortedData = [...data];
+          xPositions = sortedData.map((_, i) => (i / (sortedData.length - 1 || 1)) * 8 - 4);
+          xLabels = sortedData.map(d => d[config.xCol]);
+        }
+
+        const yValues = sortedData.map(d => parseFloat(d[config.yCol]) || 0);
         const yRange = [Math.min(...yValues), Math.max(...yValues)];
 
+        // Store all point positions for line drawing
+        const points = [];
+
         for (let i = 0; i < sortedData.length; i++) {
-          const xVal = parseFloat(sortedData[i][config.xCol]) || 0;
           const yVal = parseFloat(sortedData[i][config.yCol]) || 0;
-          const x = normalize(xVal, xRange) * 8 - 4;
+          const x = xPositions[i];
           const y = normalize(yVal, yRange) * 4;
+          const z = 0;
+          points.push({ x, y, z });
 
           // Create point
           const point = document.createElement("a-sphere");
-          point.setAttribute("position", `${x} ${y} 0`);
+          point.setAttribute("position", `${x} ${y} ${z}`);
           point.setAttribute("radius", "0.08");
           point.setAttribute("material", "color: #3498db; metalness: 0.3");
-
           point.setAttribute(
             "animation__mouseenter",
             "property: scale; to: 2 2 2; startEvents: mouseenter; dur: 200"
@@ -780,7 +841,6 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             "animation__mouseleave",
             "property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
           );
-
           container.appendChild(point);
 
           // Add value labels
@@ -788,9 +848,7 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             const valueLabel = document.createElement("a-entity");
             valueLabel.setAttribute(
               "text",
-              `value: ${yVal.toFixed(
-                1
-              )}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`
+              `value: ${yVal.toFixed(1)}; color: #ffffff; align: center; baseline: center; wrapCount: 12; shader: msdf`
             );
             valueLabel.setAttribute("position", `${x} ${y + 0.2} 0.1`);
             valueLabel.setAttribute("scale", "0.4 0.4 0.4");
@@ -798,29 +856,32 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             labelsContainer.appendChild(valueLabel);
           }
 
-          // Create line to next point
-          if (i < sortedData.length - 1) {
-            const nextXVal = parseFloat(sortedData[i + 1][config.xCol]) || 0;
-            const nextYVal = parseFloat(sortedData[i + 1][config.yCol]) || 0;
-            const nextX = normalize(nextXVal, xRange) * 8 - 4;
-            const nextY = normalize(nextYVal, yRange) * 4;
-
-            const distance = Math.sqrt(
-              Math.pow(nextX - x, 2) + Math.pow(nextY - y, 2)
+          // Add x-axis labels for categorical/date x-values
+          if (!isXNumeric && config.showLabels) {
+            const xLabel = document.createElement("a-entity");
+            xLabel.setAttribute(
+              "text",
+              `value: ${xLabels[i]}; color: #ffffff; align: center; baseline: center; wrapCount: 10; shader: msdf`
             );
-            const angle = (Math.atan2(nextY - y, nextX - x) * 180) / Math.PI;
-
-            const line = document.createElement("a-cylinder");
-            line.setAttribute(
-              "position",
-              `${(x + nextX) / 2} ${(y + nextY) / 2} 0`
-            );
-            line.setAttribute("height", distance);
-            line.setAttribute("radius", "0.03");
-            line.setAttribute("rotation", `0 0 ${90 - angle}`);
-            line.setAttribute("material", "color: #2c3e50; metalness: 0.5");
-            container.appendChild(line);
+            xLabel.setAttribute("position", `${x} -0.3 0`);
+            xLabel.setAttribute("scale", "0.3 0.3 0.3");
+            xLabel.setAttribute('data-label-type', 'label');
+            labelsContainer.appendChild(xLabel);
           }
+        }
+
+        // Draw lines between consecutive points using aframe-line-component
+        for (let i = 0; i < points.length - 1; i++) {
+          const start = points[i];
+          const end = points[i + 1];
+          const line = document.createElement("a-entity");
+          line.setAttribute("line", {
+            start: `${start.x} ${start.y} ${start.z}`,
+            end: `${end.x} ${end.y} ${end.z}`,
+            color: "#2c3e50",
+            opacity: 0.85
+          });
+          container.appendChild(line);
         }
       }
 
@@ -1900,110 +1961,74 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             contourStep = 1.0;
         }
 
+        // Generate 3D surface points as a 2D grid
+        const gridPoints = [];
         const points = [];
-
-        // Generate 3D surface points
-        for (let x = xMin; x <= xMax; x += step) {
-          for (let y = yMin; y <= yMax; y += step) {
+        for (let xi = 0, x = xMin; x <= xMax + 0.0001; xi++, x += step) {
+          const row = [];
+          for (let yi = 0, y = yMin; y <= yMax + 0.0001; yi++, y += step) {
             let z = 0;
             try {
               z = mathFunc(x, y);
               if (isFinite(z) && z >= -10 && z <= 10) {
+                row.push({ x, y, z });
                 points.push({ x, y, z });
+              } else {
+                row.push(null);
               }
             } catch (e) {
-              continue;
+              row.push(null);
+            }
+          }
+          gridPoints.push(row);
+        }
+
+        // Draw mesh lines between adjacent points in the grid
+        for (let i = 0; i < gridPoints.length; i++) {
+          for (let j = 0; j < gridPoints[i].length; j++) {
+            const p = gridPoints[i][j];
+            if (!p) continue;
+            // Line to right neighbor
+            if (j < gridPoints[i].length - 1 && gridPoints[i][j + 1]) {
+              const p2 = gridPoints[i][j + 1];
+              const line = document.createElement("a-entity");
+              line.setAttribute("line", {
+                start: `${p.x} ${p.z} ${p.y}`,
+                end: `${p2.x} ${p2.z} ${p2.y}`,
+                color: color,
+                opacity: 0.7
+              });
+              container.appendChild(line);
+            }
+            // Line to bottom neighbor
+            if (i < gridPoints.length - 1 && gridPoints[i + 1][j]) {
+              const p2 = gridPoints[i + 1][j];
+              const line = document.createElement("a-entity");
+              line.setAttribute("line", {
+                start: `${p.x} ${p.z} ${p.y}`,
+                end: `${p2.x} ${p2.z} ${p2.y}`,
+                color: color,
+                opacity: 0.7
+              });
+              container.appendChild(line);
             }
           }
         }
 
-        console.log(
-          "Generated",
-          points.length,
-          "points for 3D function (detail:",
-          detailLevel,
-          ")"
-        );
-
-        // Create surface using larger, more visible objects
-        const gridSize = Math.ceil((xMax - xMin) / step);
-
-        for (let i = 0; i < gridSize - 1; i++) {
-          for (let j = 0; j < gridSize - 1; j++) {
-            const idx1 = i * gridSize + j;
-            const idx2 = i * gridSize + j + 1;
-            const idx3 = (i + 1) * gridSize + j;
-            const idx4 = (i + 1) * gridSize + j + 1;
-
-            if (points[idx1] && points[idx2] && points[idx3] && points[idx4]) {
-              const centerX =
-                (points[idx1].x +
-                  points[idx2].x +
-                  points[idx3].x +
-                  points[idx4].x) /
-                4;
-              const centerY =
-                (points[idx1].y +
-                  points[idx2].y +
-                  points[idx3].y +
-                  points[idx4].y) /
-                4;
-              const centerZ =
-                (points[idx1].z +
-                  points[idx2].z +
-                  points[idx3].z +
-                  points[idx4].z) /
-                4;
-
-              const patch = document.createElement("a-box");
-              patch.setAttribute(
-                "position",
-                `${centerX} ${centerZ} ${centerY}`
-              );
-              patch.setAttribute("width", step * 0.8);
-              patch.setAttribute("height", "0.05");
-              patch.setAttribute("depth", step * 0.8);
-              patch.setAttribute(
-                "material",
-                `color: ${color}; metalness: 0.3; roughness: 0.7; opacity: 0.8`
-              );
-              container.appendChild(patch);
-            }
+        // Add points at regular intervals for visual reference
+        points.forEach((p, idx) => {
+          if (idx % 100 === 0) {
+            const sphere = document.createElement("a-sphere");
+            sphere.setAttribute("position", `${p.x} ${p.z} ${p.y}`);
+            sphere.setAttribute("radius", "0.05");
+            sphere.setAttribute(
+              "material",
+              `color: ${color}; metalness: 0.5; roughness: 0.3`
+            );
+            container.appendChild(sphere);
           }
-        }
-
-        // Add key contour points
-        for (let x = xMin; x <= xMax; x += contourStep) {
-          for (let y = yMin; y <= yMax; y += contourStep) {
-            try {
-              const z = mathFunc(x, y);
-              if (isFinite(z) && z >= -10 && z <= 10) {
-                const sphere = document.createElement("a-sphere");
-                sphere.setAttribute("position", `${x} ${z} ${y}`);
-                sphere.setAttribute("radius", "0.1");
-                sphere.setAttribute(
-                  "material",
-                  `color: ${color}; metalness: 0.5; roughness: 0.3`
-                );
-
-                sphere.setAttribute(
-                  "animation__mouseenter",
-                  "property: scale; to: 1.5 1.5 1.5; startEvents: mouseenter; dur: 200"
-                );
-                sphere.setAttribute(
-                  "animation__mouseleave",
-                  "property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
-                );
-
-                container.appendChild(sphere);
-              }
-            } catch (e) {
-              continue;
-            }
-          }
-        }
-
-        console.log("Created optimized 3D surface");
+        });
+        console.log("Created 3D mesh lines for surface");
       }
 
       function createSingleFunctionPlot(funcStr, color = "#ffeb3b") {
@@ -2028,21 +2053,26 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           }
         }
 
-        // Draw as a smooth line using cylinders between each pair
+        // Draw as a smooth line using aframe-line-component between each pair
         for (let i = 0; i < points.length - 1; i++) {
           const p1 = points[i];
           const p2 = points[i + 1];
-          const line = createLine(p1, p2);
-          line.setAttribute("material", `color: ${color}; metalness: 0.3`);
+          const line = document.createElement("a-entity");
+          line.setAttribute("line", {
+            start: `${p1.x} ${p1.y} ${p1.z}`,
+            end: `${p2.x} ${p2.y} ${p2.z}`,
+            color: color,
+            opacity: 0.95
+          });
           container.appendChild(line);
         }
 
-        // Add points at regular intervals
+        // Add points at regular intervals for visual reference
         points.forEach((p, idx) => {
           if (idx % 50 === 0) {
             const pt = document.createElement("a-sphere");
             pt.setAttribute("position", `${p.x} ${p.y} ${p.z}`);
-            pt.setAttribute("radius", "0.08");
+            pt.setAttribute("radius", "0.04");
             pt.setAttribute("material", `color: ${color}; metalness: 0.3`);
             container.appendChild(pt);
           }
@@ -2129,13 +2159,28 @@ sin(x^2 + y^2) - cos(x - y)</textarea
             }
           }
         }
-        // Draw points
-        points.forEach((point) => {
-          const pt = document.createElement("a-sphere");
-          pt.setAttribute("position", `${point.x} ${point.y} ${point.z}`);
-          pt.setAttribute("radius", "0.05");
-          pt.setAttribute("material", `color: ${color}; metalness: 0.3`);
-          container.appendChild(pt);
+        // Draw as a smooth line using aframe-line-component between each pair
+        for (let i = 0; i < points.length - 1; i++) {
+          const p1 = points[i];
+          const p2 = points[i + 1];
+          const line = document.createElement("a-entity");
+          line.setAttribute("line", {
+            start: `${p1.x} ${p1.y} ${p1.z}`,
+            end: `${p2.x} ${p2.y} ${p2.z}`,
+            color: color,
+            opacity: 0.95
+          });
+          container.appendChild(line);
+        }
+        // Add points at regular intervals for visual reference
+        points.forEach((point, idx) => {
+          if (idx % 50 === 0) {
+            const pt = document.createElement("a-sphere");
+            pt.setAttribute("position", `${point.x} ${point.y} ${point.z}`);
+            pt.setAttribute("radius", "0.03");
+            pt.setAttribute("material", `color: ${color}; metalness: 0.3`);
+            container.appendChild(pt);
+          }
         });
       }
 
@@ -2336,6 +2381,197 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           toggleCameraBgBtn.textContent = 'Camera Background';
         }
       });
+
+      // --- VR Control Panel Logic ---
+
+      // Helper to add gaze-based activation to VR buttons
+      function addGazeActivation(el, onClick, duration = 2000) {
+        let gazeTimer = null;
+        el.addEventListener('mouseenter', () => {
+          gazeTimer = setTimeout(() => {
+            onClick();
+            gazeTimer = null;
+          }, duration);
+        });
+        el.addEventListener('mouseleave', () => {
+          if (gazeTimer) {
+            clearTimeout(gazeTimer);
+            gazeTimer = null;
+          }
+        });
+      }
+
+      // Helper to create VR dropdowns
+      function createVRDropdown(entityId, options, selectedValue, onChange) {
+        const dropdown = document.getElementById(entityId);
+        dropdown.innerHTML = '';
+        options.forEach((opt, idx) => {
+          const isSelected = opt === selectedValue;
+          const btn = document.createElement('a-box');
+          btn.setAttribute('width', '1.0');
+          btn.setAttribute('height', '0.22');
+          btn.setAttribute('depth', '0.03');
+          btn.setAttribute('color', isSelected ? '#119dff' : '#444');
+          btn.setAttribute('position', `0 ${-idx * 0.28} 0`);
+          btn.setAttribute('class', 'vr-dropdown-option');
+          btn.setAttribute('data-value', opt);
+          btn.setAttribute('opacity', isSelected ? '1' : '0.7');
+          // Gaze activation
+          addGazeActivation(btn, () => onChange(opt));
+          // Label
+          const label = document.createElement('a-text');
+          label.setAttribute('value', opt);
+          label.setAttribute('color', '#fff');
+          label.setAttribute('width', '0.8');
+          label.setAttribute('align', 'center');
+          label.setAttribute('position', `0 ${-idx * 0.28} 0.02`);
+          dropdown.appendChild(btn);
+          dropdown.appendChild(label);
+        });
+      }
+
+      // Helper to create VR toggles
+      function createVRToggle(entityId, label, checked, onChange) {
+        const toggle = document.getElementById(entityId);
+        toggle.innerHTML = '';
+        const box = document.createElement('a-box');
+        box.setAttribute('width', '0.22');
+        box.setAttribute('height', '0.22');
+        box.setAttribute('depth', '0.03');
+        box.setAttribute('color', checked ? '#00b894' : '#888');
+        box.setAttribute('opacity', checked ? '1' : '0.7');
+        box.setAttribute('position', '0 0 0');
+        box.setAttribute('class', 'vr-toggle-box');
+        // Gaze activation
+        addGazeActivation(box, () => onChange(!checked));
+        toggle.appendChild(box);
+        const text = document.createElement('a-text');
+        text.setAttribute('value', label);
+        text.setAttribute('color', '#fff');
+        text.setAttribute('width', '0.8');
+        text.setAttribute('align', 'left');
+        text.setAttribute('position', '0.22 0 0.02');
+        toggle.appendChild(text);
+      }
+
+      // Show/hide VR panel on VR mode change
+      scene.addEventListener('enter-vr', () => {
+        document.getElementById('vrControlPanel').setAttribute('visible', 'true');
+      });
+      scene.addEventListener('exit-vr', () => {
+        document.getElementById('vrControlPanel').setAttribute('visible', 'false');
+      });
+
+      // Sync VR panel with current config/data
+      function updateVRPanel() {
+        // Chart type
+        const chartTypes = [
+          '3D Bar Chart',
+          '3D Scatter Plot',
+          '3D Line Chart',
+          '3D Pie Chart',
+          '3D Surface Plot',
+          '3D Network Graph',
+          '3D Heatmap',
+          'Function Plot (Math Graph)'
+        ];
+        const chartTypeValues = [
+          'bar', 'scatter', 'line', 'pie', 'surface', 'network', 'heatmap', 'function'
+        ];
+        createVRDropdown('vrChartTypeDropdown', chartTypes, chartTypes[chartTypeValues.indexOf(config.type)], (val) => {
+          const idx = chartTypes.indexOf(val);
+          config.type = chartTypeValues[idx];
+          document.getElementById('chartType').value = config.type;
+          generateChart();
+          updateVRPanel();
+        });
+        // X, Y, Z, Size, Color columns
+        const columns = currentData[0] ? Object.keys(currentData[0]) : [];
+        const numericColumns = columns.filter(col => typeof currentData[0][col] === 'number' || !isNaN(parseFloat(currentData[0][col])));
+        createVRDropdown('vrXColumnDropdown', columns, config.xCol, (val) => {
+          config.xCol = val;
+          document.getElementById('xColumn').value = val;
+          generateChart();
+          updateVRPanel();
+        });
+        createVRDropdown('vrYColumnDropdown', columns, config.yCol, (val) => {
+          config.yCol = val;
+          document.getElementById('yColumn').value = val;
+          generateChart();
+          updateVRPanel();
+        });
+        createVRDropdown('vrZColumnDropdown', ['None', ...numericColumns], config.zCol || 'None', (val) => {
+          config.zCol = val === 'None' ? null : val;
+          document.getElementById('zColumn').value = val;
+          generateChart();
+          updateVRPanel();
+        });
+        createVRDropdown('vrSizeColumnDropdown', ['None', ...numericColumns], config.sizeCol || 'None', (val) => {
+          config.sizeCol = val === 'None' ? null : val;
+          document.getElementById('sizeColumn').value = val;
+          generateChart();
+          updateVRPanel();
+        });
+        createVRDropdown('vrColorColumnDropdown', ['None', ...columns], config.colorCol || 'None', (val) => {
+          config.colorCol = val === 'None' ? null : val;
+          document.getElementById('colorColumn').value = val;
+          generateChart();
+          updateVRPanel();
+        });
+        // Toggles
+        createVRToggle('vrShowLabelsToggle', 'Labels', config.showLabels, (checked) => {
+          config.showLabels = checked;
+          document.getElementById('showLabels').checked = checked;
+          generateChart();
+          updateVRPanel();
+        });
+        createVRToggle('vrShowValuesToggle', 'Values', config.showValues, (checked) => {
+          config.showValues = checked;
+          document.getElementById('showValues').checked = checked;
+          generateChart();
+          updateVRPanel();
+        });
+        createVRToggle('vrShowGridLinesToggle', 'Grid', document.getElementById('showGridLines').checked, (checked) => {
+          document.getElementById('showGridLines').checked = checked;
+          document.getElementById('showGridLines').dispatchEvent(new Event('change'));
+          updateVRPanel();
+        });
+        createVRToggle('vrShowAxisLinesToggle', 'Axes', document.getElementById('showAxisLines').checked, (checked) => {
+          document.getElementById('showAxisLines').checked = checked;
+          document.getElementById('showAxisLines').dispatchEvent(new Event('change'));
+          updateVRPanel();
+        });
+      }
+
+      // VR Action buttons
+      setTimeout(() => {
+        // Generate
+        addGazeActivation(document.getElementById('vrGenerateBtn'), () => {
+          generateChart();
+          updateVRPanel();
+        });
+        // Reset
+        addGazeActivation(document.getElementById('vrResetBtn'), () => {
+          resetView();
+          updateVRPanel();
+        });
+        // Exit VR
+        addGazeActivation(document.getElementById('vrToggleVRBtn'), () => {
+          scene.exitVR();
+        });
+        // Camera BG
+        addGazeActivation(document.getElementById('vrCameraBgBtn'), () => {
+          toggleCameraBgBtn.click();
+          updateVRPanel();
+        });
+      }, 1500);
+
+      // Update VR panel whenever data/config changes
+      setInterval(() => {
+        if (document.getElementById('vrControlPanel').getAttribute('visible') === 'true') {
+          updateVRPanel();
+        }
+      }, 1200);
     </script>
   </body>
 </html>
