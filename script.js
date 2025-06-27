@@ -2207,3 +2207,22 @@ window.addEventListener('DOMContentLoaded', function() {
   // Change arrow to right
   sidebarArrow.setAttribute('points', '12,8 20,16 12,24');
 });
+
+// --- Robust Error Handling for Network and JS Errors ---
+window.addEventListener('offline', function() {
+  showError('You are offline. Some features may not work.');
+});
+window.addEventListener('online', function() {
+  showError('You are back online.');
+});
+if (!navigator.onLine) {
+  showError('You are currently offline.');
+}
+
+window.onerror = function(message, source, lineno, colno, error) {
+  showError('An unexpected error occurred: ' + message);
+  return false; // Let the browser log it as well
+};
+window.addEventListener('unhandledrejection', function(event) {
+  showError('A promise error occurred: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
+});
