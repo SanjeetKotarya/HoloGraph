@@ -268,11 +268,14 @@ function updateColumns() {
   );
   updateSelect("zColumn", ["None", ...numericColumns]);
   updateSelect("sizeColumn", ["None", ...numericColumns]);
-  updateSelect("colorColumn", ["None", ...columns]);
+  if (document.getElementById("colorColumn")) {
+    updateSelect("colorColumn", ["None", ...columns]);
+  }
 }
 
 function updateSelect(id, options, defaultValue = null) {
   const select = document.getElementById(id);
+  if (!select) return;
   select.innerHTML = "";
 
   options.forEach((option) => {
@@ -296,10 +299,10 @@ function generateChart() {
     document.getElementById("sizeColumn").value === "None"
       ? null
       : document.getElementById("sizeColumn").value;
-  config.colorCol =
-    document.getElementById("colorColumn").value === "None"
-      ? null
-      : document.getElementById("colorColumn").value;
+  const colorColumnEl = document.getElementById("colorColumn");
+  config.colorCol = colorColumnEl && colorColumnEl.value !== "None"
+    ? colorColumnEl.value
+    : null;
   config.showLabels = document.getElementById("showLabels").checked;
   config.showValues = document.getElementById("showValues").checked;
 
@@ -1284,7 +1287,9 @@ setTimeout(() => {
   updateStats();
   document.getElementById("xColumn").value = "Category";
   document.getElementById("yColumn").value = "Sales";
-  document.getElementById("colorColumn").value = "Region";
+  if (document.getElementById("colorColumn")) {
+    document.getElementById("colorColumn").value = "Region";
+  }
   generateChart();
 }, 1000);
 
@@ -2031,8 +2036,10 @@ function unloadCSV() {
   document.getElementById("zColumn").innerHTML = "<option>None</option>";
   document.getElementById("sizeColumn").innerHTML =
     "<option>None</option>";
-  document.getElementById("colorColumn").innerHTML =
-    "<option>None</option>";
+  if (document.getElementById("colorColumn")) {
+    document.getElementById("colorColumn").innerHTML =
+      "<option>None</option>";
+  }
 
   // Reset axis and title labels
   document
