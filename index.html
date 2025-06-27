@@ -18,7 +18,8 @@
     <script src="https://cdn.jsdelivr.net/npm/aframe-troika-text@^1.0.0/dist/aframe-troika-text.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://unpkg.com/aframe-line-component/dist/aframe-line-component.min.js"></script>
-        <link
+    
+    <link
       rel="apple-touch-icon"
       sizes="180x180"
       href="favicon_io/apple-touch-icon.png"
@@ -90,7 +91,7 @@
               margin-bottom: 10px;
             "
           >
-sin(x^2 + y^2) - cos(x - y)</textarea
+sin(x)</textarea
           >
           <div style="margin-top: 0">
             <label for="detailLevel" style="margin-bottom: 4px; display: block"
@@ -249,7 +250,6 @@ sin(x^2 + y^2) - cos(x - y)</textarea
       <button class="view-button" onclick="setView('free')">Free View</button>
     </div>
 
-
     <div class="zoom-controls">
       <button
         class="zoom-button vr-button"
@@ -291,11 +291,45 @@ sin(x^2 + y^2) - cos(x - y)</textarea
           />
         </svg>
       </button>
-      <button class="zoom-button" onclick="zoomIn()" aria-label="Zoom In" title="Zoom In" style="display: flex; align-items: center; justify-content: center;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1.4em" height="1.4em" style="display: block;"><path d="M480,224H288V32c0-17.673-14.327-32-32-32s-32,14.327-32,32v192H32c-17.673,0-32,14.327-32,32s14.327,32,32,32h192v192c0,17.673,14.327,32,32,32s32-14.327,32-32V288h192c17.673,0,32-14.327,32-32S497.673,224,480,224z" fill="#fff"/></svg>
+      <button
+        class="zoom-button"
+        onclick="zoomIn()"
+        aria-label="Zoom In"
+        title="Zoom In"
+        style="display: flex; align-items: center; justify-content: center"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          width="1.4em"
+          height="1.4em"
+          style="display: block"
+        >
+          <path
+            d="M480,224H288V32c0-17.673-14.327-32-32-32s-32,14.327-32,32v192H32c-17.673,0-32,14.327-32,32s14.327,32,32,32h192v192c0,17.673,14.327,32,32,32s32-14.327,32-32V288h192c17.673,0,32-14.327,32-32S497.673,224,480,224z"
+            fill="#fff"
+          />
+        </svg>
       </button>
-      <button class="zoom-button" onclick="zoomOut()" aria-label="Zoom Out" title="Zoom Out" style="display: flex; align-items: center; justify-content: center;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1.4em" height="1.4em" style="display: block;"><path d="M480,288H32c-17.673,0-32-14.327-32-32s14.327-32,32-32h448c17.673,0,32,14.327,32,32S497.673,288,480,288z" fill="#fff"/></svg>
+      <button
+        class="zoom-button"
+        onclick="zoomOut()"
+        aria-label="Zoom Out"
+        title="Zoom Out"
+        style="display: flex; align-items: center; justify-content: center"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          width="1.4em"
+          height="1.4em"
+          style="display: block"
+        >
+          <path
+            d="M480,288H32c-17.673,0-32-14.327-32-32s14.327-32,32-32h448c17.673,0,32,14.327,32,32S497.673,288,480,288z"
+            fill="#fff"
+          />
+        </svg>
       </button>
       <button class="zoom-button" onclick="resetView()" title="Reset">⌂</button>
       <button
