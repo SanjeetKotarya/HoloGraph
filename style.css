@@ -239,7 +239,7 @@ select {
 
 .zoom-controls {
   position: absolute;
-  bottom: 20px;
+  bottom: 60px;
   right: 20px;
   z-index: 100;
   display: flex;
