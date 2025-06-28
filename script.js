@@ -1410,13 +1410,19 @@ function handleMouseUp(event) {
 let lastPinchDistance = null;
 
 function handleTouchStart(event) {
-  if (event.touches.length === 1 && currentView === "free") {
-    isPanning = true;
+  if (event.touches.length === 1) {
     previousMousePosition = {
       x: event.touches[0].clientX,
       y: event.touches[0].clientY,
     };
-    // Disable A-Frame controls during panning by removing attributes
+    if (rotateMode) {
+      isRotating = true;
+      isPanning = false;
+    } else if (panMode || currentView === "free") {
+      isPanning = true;
+      isRotating = false;
+    }
+    // Disable A-Frame controls during interaction
     const cameraEl = document.getElementById("camera");
     cameraEl.removeAttribute("look-controls");
     cameraEl.removeAttribute("wasd-controls");
@@ -1430,40 +1436,54 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
-  if (event.touches.length === 1 && isPanning && currentView === "free") {
-  const deltaMove = {
-    x: event.touches[0].clientX - previousMousePosition.x,
-    y: event.touches[0].clientY - previousMousePosition.y,
-  };
-  const cameraRig = document.getElementById("cameraRig");
-  const camera = document.getElementById("camera");
-  const currentPos = cameraRig.getAttribute("position");
-  const worldRight = new THREE.Vector3();
-  const worldUp = new THREE.Vector3();
-  const worldForward = new THREE.Vector3();
-  camera.object3D.matrixWorld.extractBasis(
-    worldRight,
-    worldUp,
-    worldForward
-  );
-  const panSpeed = 0.001 * currentZoom;
-  const newX =
-    currentPos.x -
-    worldRight.x * deltaMove.x * panSpeed +
-    worldUp.x * deltaMove.y * panSpeed;
-  const newY =
-    currentPos.y -
-    worldRight.y * deltaMove.x * panSpeed +
-    worldUp.y * deltaMove.y * panSpeed;
-  const newZ =
-    currentPos.z -
-    worldRight.z * deltaMove.x * panSpeed +
-    worldUp.z * deltaMove.y * panSpeed;
-  cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
-  previousMousePosition = {
-    x: event.touches[0].clientX,
-    y: event.touches[0].clientY,
-  };
+  if (event.touches.length === 1) {
+    const deltaMove = {
+      x: event.touches[0].clientX - previousMousePosition.x,
+      y: event.touches[0].clientY - previousMousePosition.y,
+    };
+    if (isPanning && (panMode || currentView === "free")) {
+      const cameraRig = document.getElementById("cameraRig");
+      const camera = document.getElementById("camera");
+      const currentPos = cameraRig.getAttribute("position");
+      const worldRight = new THREE.Vector3();
+      const worldUp = new THREE.Vector3();
+      const worldForward = new THREE.Vector3();
+      camera.object3D.matrixWorld.extractBasis(
+        worldRight,
+        worldUp,
+        worldForward
+      );
+      const panSpeed = 0.001 * currentZoom;
+      const newX =
+        currentPos.x -
+        worldRight.x * deltaMove.x * panSpeed +
+        worldUp.x * deltaMove.y * panSpeed;
+      const newY =
+        currentPos.y -
+        worldRight.y * deltaMove.x * panSpeed +
+        worldUp.y * deltaMove.y * panSpeed;
+      const newZ =
+        currentPos.z -
+        worldRight.z * deltaMove.x * panSpeed +
+        worldUp.z * deltaMove.y * panSpeed;
+      cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
+    } else if (isRotating && rotateMode) {
+      const rotationContainer = document.getElementById("graphRotationContainer");
+      const currentRotation = rotationContainer.getAttribute("rotation");
+      const newRotX = currentRotation.x + deltaMove.y * rotationSpeed * 0.3;
+      const newRotY = currentRotation.y + deltaMove.x * rotationSpeed * 0.3;
+      rotationContainer.setAttribute(
+        "rotation",
+        `${newRotX} ${newRotY} ${currentRotation.z}`
+      );
+      graphRotation.x = newRotX;
+      graphRotation.y = newRotY;
+      graphRotation.z = currentRotation.z;
+    }
+    previousMousePosition = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+    };
   } else if (event.touches.length === 2) {
     // Pinch to zoom
     const pinchDistance = Math.hypot(
@@ -1472,12 +1492,10 @@ function handleTouchMove(event) {
     );
     if (lastPinchDistance !== null) {
       const delta = pinchDistance - lastPinchDistance;
-      if (Math.abs(delta) > 2) { // threshold to avoid jitter
+      if (Math.abs(delta) > 2) {
         if (delta > 0) {
-          // Pinch out (zoom in)
           currentZoom = Math.max(minZoom, currentZoom - 1);
         } else {
-          // Pinch in (zoom out)
           currentZoom = Math.min(maxZoom, currentZoom + 1);
         }
         updateCameraPosition();
@@ -1492,8 +1510,9 @@ function handleTouchMove(event) {
 
 function handleTouchEnd(event) {
   isPanning = false;
+  isRotating = false;
   lastPinchDistance = null;
-  // Re-enable A-Frame controls after panning
+  // Re-enable A-Frame controls after interaction
   const cameraEl = document.getElementById("camera");
   cameraEl.setAttribute("look-controls", "");
   cameraEl.setAttribute("wasd-controls", "");
@@ -1782,20 +1801,24 @@ function createSingleFunctionPlot(funcStr, color = "#ffeb3b") {
   const container = document.getElementById("dataContainer");
   const mathFunc = parseMathFunction(funcStr);
   const points = [];
-  const xMin = -10,
-    xMax = 10,
-    step = 0.07;
+  // Get range from UI (symmetric limits)
+  const xLimit = parseFloat(document.getElementById('xLimit')?.value) ?? 10;
+  const yLimit = parseFloat(document.getElementById('yLimit')?.value) ?? 20;
+  const xMin = -Math.abs(xLimit);
+  const xMax = Math.abs(xLimit);
+  const yMin = -Math.abs(yLimit);
+  const yMax = Math.abs(yLimit);
+  const step = 0.07;
 
   for (let x = xMin; x <= xMax; x += step) {
     let y = 0;
     try {
       y = mathFunc(x);
       // Only add points within reasonable bounds
-      if (y >= -20 && y <= 20) {
+      if (y >= yMin && y <= yMax) {
         points.push({ x, y, z: 0 });
       }
     } catch (e) {
-      // Skip points where function is undefined
       continue;
     }
   }
@@ -1829,11 +1852,14 @@ function createSingleFunctionPlot(funcStr, color = "#ffeb3b") {
 function createGeneralEquationPlot(equation, color = "#ffeb3b") {
   const container = document.getElementById("dataContainer");
   const points = [];
-  const xMin = -10,
-    xMax = 10,
-    step = 0.04; // smaller step for smoother curves
-  const yMin = -10,
-    yMax = 10;
+  // Get range from UI (symmetric limits)
+  const xLimit = parseFloat(document.getElementById('xLimit')?.value) ?? 10;
+  const yLimit = parseFloat(document.getElementById('yLimit')?.value) ?? 10;
+  const xMin = -Math.abs(xLimit);
+  const xMax = Math.abs(xLimit);
+  const yMin = -Math.abs(yLimit);
+  const yMax = Math.abs(yLimit);
+  const step = 0.04; // smaller step for smoother curves
 
   // Preprocess: replace ^ with ** for JS power
   equation = equation.replace(/\^/g, "**");
@@ -2074,15 +2100,17 @@ function createXZFloorGrid() {
   const gridEntity = document.getElementById("floorGrid");
   if (!gridEntity) return;
   gridEntity.innerHTML = "";
-  const min = -20, max = 20, step = 1;
+  // Use grid size from slider as half-width of grid
+  const gridHalf = Math.round(parseFloat(document.getElementById('gridSizeSlider')?.value) || 20);
+  const min = -gridHalf, max = gridHalf, step = 1;
   // Draw lines parallel to X (varying Z)
   for (let z = min; z <= max; z += step) {
     const line = document.createElement("a-entity");
     line.setAttribute("line", {
       start: `${min} 0 ${z}`,
       end: `${max} 0 ${z}`,
-      color: z === 0 ? '#ffffff' : '#888',
-      opacity: z === 0 ? 0.7 : 0.3,
+      color: Math.abs(z) < 0.001 ? '#ffffff' : '#888',
+      opacity: Math.abs(z) < 0.001 ? 0.7 : 0.3,
     });
     gridEntity.appendChild(line);
   }
@@ -2092,8 +2120,8 @@ function createXZFloorGrid() {
     line.setAttribute("line", {
       start: `${x} 0 ${min}`,
       end: `${x} 0 ${max}`,
-      color: x === 0 ? '#ffffff' : '#888',
-      opacity: x === 0 ? 0.7 : 0.3,
+      color: Math.abs(x) < 0.001 ? '#ffffff' : '#888',
+      opacity: Math.abs(x) < 0.001 ? 0.7 : 0.3,
     });
     gridEntity.appendChild(line);
   }
@@ -2233,3 +2261,93 @@ window.onerror = function(message, source, lineno, colno, error) {
 window.addEventListener('unhandledrejection', function(event) {
   showError('A promise error occurred: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
 });
+
+// Helper to get display name for view
+function getViewDisplayName(view) {
+  switch (view) {
+    case 'front': return 'Front View';
+    case 'top': return 'Top View';
+    case 'side': return 'Side View';
+    case 'isometric': return 'Isometric View';
+    case 'free': return 'Free View';
+    default: return '';
+  }
+}
+
+// Update view mode text
+function updateViewModeText() {
+  const textEl = document.getElementById('viewModeText');
+  if (textEl) textEl.textContent = getViewDisplayName(currentView);
+}
+
+// Patch setView to update the text
+const origSetView = setView;
+setView = function(view) {
+  origSetView(view);
+  updateViewModeText();
+};
+
+// On DOMContentLoaded, set initial view mode text
+window.addEventListener('DOMContentLoaded', function() {
+  updateViewModeText();
+});
+
+// --- Grid and Axis Size Controls ---
+function updateGridSize() {
+  const gridSize = parseFloat(document.getElementById('gridSizeSlider').value);
+  // Update all grid lines (floorGrid)
+  const grid = document.getElementById('floorGrid');
+  if (grid) {
+    Array.from(grid.children).forEach(lineEntity => {
+      if (lineEntity.hasAttribute('line')) {
+        // The aframe-line-component does not have thickness, so we can optionally add a cylinder for thickness
+        // But if you use a custom line renderer, set thickness here
+        // For now, do nothing (aframe-line-component is always 1px)
+      } else if (lineEntity.tagName === 'A-CYLINDER') {
+        lineEntity.setAttribute('radius', 0.01 * gridSize);
+      }
+    });
+  }
+}
+
+function updateAxisSize() {
+  const axisSize = parseFloat(document.getElementById('axisSizeSlider').value);
+  // Update the three axis cylinders in axesContainer
+  const axes = document.getElementById('axesContainer');
+  if (axes && axes.children.length >= 5) {
+    // X, Y, Z axis cylinders are children 0, 2, 4
+    axes.children[0].setAttribute('height', 4 * axisSize);
+    axes.children[2].setAttribute('height', 4 * axisSize);
+    axes.children[4].setAttribute('height', 4 * axisSize);
+    // Also update their positions so they remain centered
+    axes.children[0].setAttribute('position', `${2 * axisSize} 0 0`);
+    axes.children[2].setAttribute('position', `0 ${2 * axisSize} 0`);
+    axes.children[4].setAttribute('position', `0 0 ${2 * axisSize}`);
+    // Update axis labels' positions
+    document.getElementById('xAxisLabel').setAttribute('position', `${4.5 * axisSize} 0 0`);
+    document.getElementById('yAxisLabel').setAttribute('position', `0 ${4.5 * axisSize} 0`);
+    // Z label is the 3rd a-entity after the Z cylinder
+    const zLabel = axes.children[6];
+    if (zLabel) zLabel.setAttribute('position', `0 0 ${4.5 * axisSize}`);
+  }
+}
+
+document.getElementById('gridSizeSlider').addEventListener('input', function() {
+  createXZFloorGrid();
+});
+document.getElementById('axisSizeSlider').addEventListener('input', updateAxisSize);
+
+// Call these after chart generation and view reset
+const origGenerateChart = generateChart;
+generateChart = function() {
+  origGenerateChart();
+  createXZFloorGrid();
+  updateAxisSize();
+};
+
+const origResetView = resetView;
+resetView = function() {
+  origResetView();
+  createXZFloorGrid();
+  updateAxisSize();
+};
