@@ -5,10 +5,10 @@ body {
 }
 
 .control-panel {
-  position: fixed ;
-  z-index: 210 ;
-  pointer-events: auto ;
-  overflow-y: auto ;
+  position: fixed;
+  z-index: 210;
+  pointer-events: auto;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: auto;
   top: 10px;
@@ -20,14 +20,14 @@ body {
   padding: 24px 22px 18px 22px;
   max-height: 91vh;
   overflow-x: hidden;
-  scrollbar-width: none ;
-  -ms-overflow-style: none ;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* Hide scrollbar by default, show on hover */
 .control-panel::-webkit-scrollbar {
-  width: 0 ;
-  background: transparent ;
+  width: 0;
+  background: transparent;
 }
 
 .control-panel:hover::-webkit-scrollbar {
@@ -43,7 +43,7 @@ body {
 /* Add a floating effect */
 .control-panel {
   backdrop-filter: blur(4px) saturate(1.2);
-  border: 1.5px solid #2d2e4a ;
+  border: 1.5px solid #2d2e4a;
 }
 
 .sidebar-header {
@@ -56,7 +56,7 @@ body {
   /* Optional spacing between logo and title */
   width: 100%;
   margin: 0;
-  color: #a084e8 ;
+  color: #a084e8;
   font-size: 1.45rem;
   font-weight: 700;
   margin-bottom: 18px;
@@ -138,27 +138,41 @@ body {
   background: #e04646;
 }
 
+.collapsible-header {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: #a084e8;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 6px 0 6px 0;
+  cursor: pointer;
+  
+}
+
 /* Side-by-side label and dropdown for control-group */
 .control-group {
   display: flex;
   align-items: center;
+  width: 100%;
   gap: 14px;
-  margin-bottom: 18px ;
+  margin-bottom: 18px;
 }
 
 .control-group label {
   flex: 0 0 44%;
-  margin-bottom: 0 ;
+  margin-bottom: 0;
   text-align: left;
-  font-size: 1rem ;
-  color: #e5e5f7 ;
+  font-size: 1rem;
+  color: #e5e5f7;
 }
 
 .control-group select,
 .control-group .file-input,
 .control-group textarea {
   flex: 1 1 56%;
-  margin-bottom: 0 ;
+  margin-bottom: 0;
 }
 
 /* For checkboxes and other controls inside .control-group, revert to block layout */
@@ -175,13 +189,13 @@ select {
 }
 
 .button {
-  background: linear-gradient(90deg, #21e6c1 0%, #2d8cf0 100%) ;
-  color: #fff ;
+  background: linear-gradient(90deg, #21e6c1 0%, #2d8cf0 100%);
+  color: #fff;
   font-weight: 700;
-  font-size: 1.08rem ;
-  border-radius: 10px ;
-  padding: 12px 0 ;
-  margin: 10px 0 0 0 ;
+  font-size: 1.08rem;
+  border-radius: 10px;
+  padding: 12px 0;
+  margin: 10px 0 0 0;
   width: 100%;
   box-shadow: 0 2px 8px 0 rgba(33, 230, 193, 0.08);
   letter-spacing: 0.01em;
@@ -189,7 +203,7 @@ select {
 }
 
 .button:hover {
-  background: linear-gradient(90deg, #2d8cf0 0%, #21e6c1 100%) ;
+  background: linear-gradient(90deg, #2d8cf0 0%, #21e6c1 100%);
 }
 
 .button.vr-button {
@@ -205,12 +219,12 @@ select {
 }
 
 .stats {
-  background: #232946 ;
-  color: #a084e8 ;
-  border-radius: 8px ;
-  font-size: 0.98rem ;
-  margin-top: 18px ;
-  padding: 10px 12px ;
+  background: #232946;
+  color: #a084e8;
+  border-radius: 8px;
+  font-size: 0.98rem;
+  margin-top: 18px;
+  padding: 10px 12px;
   text-align: center;
 }
 
@@ -222,10 +236,10 @@ select {
   padding: 5px;
   margin-top: 5px;
   border-radius: 4px;
-  background: #232946 ;
-  color: #ffb86b ;
-  margin-top: 10px ;
-  padding: 8px 12px ;
+  background: #232946;
+  color: #ffb86b;
+  margin-top: 10px;
+  padding: 8px 12px;
 }
 
 .loading {
@@ -267,9 +281,9 @@ select {
 }
 
 .zoom-button.active {
-  background: linear-gradient(90deg, #a084e8 0%, #21e6c1 100%) ;
+  background: linear-gradient(90deg, #a084e8 0%, #21e6c1 100%);
   box-shadow: 0 0 0 3px #a084e8cc;
-  color: #fff ;
+  color: #fff;
   border: 2px solid #fff;
 }
 
@@ -316,11 +330,11 @@ select {
 
 /* Icon-only button, no background or border */
 .icon-button {
-  background: transparent ;
-  border: none ;
-  box-shadow: none ;
-  padding: 6px 12px ;
-  margin: 3px 3px 3px 0 ;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 6px 12px;
+  margin: 3px 3px 3px 0;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -335,20 +349,20 @@ select {
 select,
 .file-input,
 textarea {
-  background: #232946 ;
-  color: #e5e5f7 ;
-  border: 1.5px solid #393a5a ;
-  border-radius: 8px ;
-  font-size: 1rem ;
-  padding: 8px 10px ;
-  margin-bottom: 0 ;
+  background: #232946;
+  color: #e5e5f7;
+  border: 1.5px solid #393a5a;
+  border-radius: 8px;
+  font-size: 1rem;
+  padding: 8px 10px;
+  margin-bottom: 0;
   transition: border 0.2s;
 }
 
 select:focus,
 .file-input:focus,
 textarea:focus {
-  border: 1.5px solid #a084e8 ;
+  border: 1.5px solid #a084e8;
   outline: none;
 }
 
@@ -442,6 +456,21 @@ input[type="range"] {
   transition: background 0.2s;
 }
 
+#viewModeDisplayContainer {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  top: 40px;
+  right: 70px;
+  z-index: 120;
+}
+
+#viewModeText {
+  color: #a084e8;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
 #floatingViewMenu {
   position: fixed;
   top: 80px;
@@ -482,20 +511,20 @@ input[type="range"] {
 }
 
 #floatingViewMenu .prominent-view-btn {
-  background: #aa00e8 ;
-  color: #fff ;
+  background: #aa00e8;
+  color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
   border-radius: 16px;
   width: 100%;
-  margin-bottom: 18px ;
+  margin-bottom: 18px;
   box-shadow: 0 2px 12px 0 #aa00e866;
 }
 
 #floatingViewMenu .prominent-view-btn:hover,
 #floatingViewMenu .prominent-view-btn:focus {
-  background: #d500f9 ;
-  color: #fff ;
+  background: #d500f9;
+  color: #fff;
 }
 
 .sidebar-toggle-btn {
@@ -517,14 +546,14 @@ input[type="range"] {
 
 .control-group textarea,
 #functionInput {
-  resize: vertical ;
-  width: 100% ;
+  resize: vertical;
+  width: 100%;
   min-height: 40px;
   max-height: none;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  flex: none ;
+  flex: none;
 }
 
 .control-group input[type="range"] {
@@ -600,7 +629,7 @@ input[type="range"] {
     max-width: 70vw;
     width: 76vw;
     padding: 12px 10px;
-    font-size: 0.95rem; 
+    font-size: 0.95rem;
     max-height: 94vh;
   }
 
@@ -647,7 +676,15 @@ input[type="range"] {
   .file-input {
     font-size: 0.8rem;
   }
+
   .view-button {
+    font-size: 0.8rem;
+  }
+
+  #viewModeText {
+    font-size: 0.8rem;
+  }
+  .collapsible-header {
     font-size: 0.8rem;
   }
 }
