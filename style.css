@@ -200,6 +200,7 @@ select {
   box-shadow: 0 2px 8px 0 rgba(33, 230, 193, 0.08);
   letter-spacing: 0.01em;
   border: none;
+  cursor: pointer;
 }
 
 .button:hover {
