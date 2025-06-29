@@ -12,15 +12,18 @@ let config = {
 };
 
 let isVRMode = false;
-let currentZoom = 50; // Default zoom set to 50
 const minZoom = 0.5; // Allow zooming much closer
 const maxZoom = 200; // Increased max zoom to 200
+const defaultZoom = (minZoom + maxZoom) / 2; // Midpoint for balanced zoom
+let currentZoom = defaultZoom;
+let lastSliderZoom = defaultZoom;
 
 // Dragging variables
 let isPanning = false;
 let isRotating = false;
 let previousMousePosition = { x: 0, y: 0 };
 let cameraRig = null;
+let lastPinchDistance = null; // For pinch-to-zoom tracking
 
 // Rotation variables
 let graphRotation = { x: 0, y: 0, z: 0 };
@@ -49,31 +52,6 @@ zoomIndicator.style.borderRadius = "20px";
 zoomIndicator.style.fontSize = "12px";
 zoomIndicator.style.display = "none";
 document.body.appendChild(zoomIndicator);
-
-function updateZoomIndicator() {
-  const zoomPercentage = Math.round(
-    ((currentZoom - minZoom) / (maxZoom - minZoom)) * 100
-  );
-  zoomIndicator.textContent = `Zoom: ${zoomPercentage}%`;
-
-  // Show warning when zoomed very close
-  if (currentZoom < 2) {
-    zoomIndicator.style.background = "rgba(255, 0, 0, 0.7)";
-    zoomIndicator.style.display = "block";
-  } else {
-    zoomIndicator.style.background = "rgba(0, 0, 0, 0.7)";
-    zoomIndicator.style.display = "block";
-  }
-
-  // Hide indicator after 2 seconds if not in warning state
-  if (currentZoom >= 2) {
-    setTimeout(() => {
-      if (currentZoom >= 2) {
-        zoomIndicator.style.display = "none";
-      }
-    }, 2000);
-  }
-}
 
 // Initialize
 document
@@ -183,8 +161,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // Show function input group if chartType is 'function' on load
   const chartTypeSelect = document.getElementById('chartType');
   const functionInputGroup = document.getElementById('functionInputGroup');
+  const equationDropdownGroup = document.getElementById('equationDropdownGroup');
   if (chartTypeSelect.value === 'function') {
     functionInputGroup.style.display = '';
+    if (equationDropdownGroup) equationDropdownGroup.style.display = '';
   }
 
   // Prevent background scroll when scrolling inside the sidebar
@@ -195,6 +175,68 @@ document.addEventListener("DOMContentLoaded", function () {
   sidebar.addEventListener('touchmove', function(e) {
     e.stopPropagation();
   }, { passive: false });
+
+  const zoomSlider = document.getElementById("zoomSlider");
+  if (zoomSlider) {
+    // Set slider to the inverted midpoint (centered)
+    zoomSlider.value = maxZoom - (defaultZoom - minZoom);
+    zoomSlider.min = minZoom;
+    zoomSlider.max = maxZoom;
+    zoomSlider.step = 0.5;
+    lastSliderZoom = defaultZoom;
+    zoomSlider.addEventListener("input", function () {
+      // Invert the slider value for reversed direction
+      const newZoom = maxZoom - (parseFloat(this.value) - minZoom);
+      const cameraRig = document.getElementById("cameraRig");
+      const camera = document.getElementById("camera");
+      const pos = cameraRig.getAttribute("position");
+      const worldDirection = new THREE.Vector3();
+      camera.object3D.getWorldDirection(worldDirection);
+      worldDirection.normalize();
+      // Move by the difference in zoom
+      const delta = newZoom - lastSliderZoom;
+      cameraRig.setAttribute(
+        "position",
+        `${pos.x + worldDirection.x * delta} ${pos.y + worldDirection.y * delta} ${pos.z + worldDirection.z * delta}`
+      );
+      currentZoom = newZoom;
+      lastSliderZoom = newZoom;
+      updateZoomIndicator();
+    });
+  }
+
+  // Real-time update for xLimit and yLimit
+  const xLimitInput = document.getElementById('xLimit');
+  const yLimitInput = document.getElementById('yLimit');
+  if (xLimitInput) {
+    xLimitInput.addEventListener('input', function() {
+      generateChart();
+    });
+  }
+  if (yLimitInput) {
+    yLimitInput.addEventListener('input', function() {
+      generateChart();
+    });
+  }
+
+  // Hide file input for function plot
+  const fileInputContainer = document.getElementById('fileInputContainer');
+  function updateFileInputVisibility() {
+    if (chartTypeSelect.value === 'function') {
+      fileInputContainer.style.display = 'none';
+    } else {
+      fileInputContainer.style.display = '';
+    }
+  }
+  chartTypeSelect.addEventListener('change', updateFileInputVisibility);
+  updateFileInputVisibility();
+
+  // Gyro control: default OFF
+  const cameraEl = document.getElementById("camera");
+  cameraEl.removeAttribute("look-controls");
+  gyroEnabled = false;
+  const gyroBtn = document.getElementById('gyroToggleBtn');
+  if (gyroBtn) gyroBtn.classList.remove('active');
 });
 
 // Mouse wheel zoom with smoother control
@@ -601,17 +643,21 @@ function createLineChart(data) {
   }
 
   // Draw lines between consecutive points using aframe-line-component
+  const distanceThreshold = 1.5; // Only connect points that are close
   for (let i = 0; i < points.length - 1; i++) {
-    const start = points[i];
-    const end = points[i + 1];
-    const line = document.createElement("a-entity");
-    line.setAttribute("line", {
-      start: `${start.x} ${start.y} ${start.z}`,
-      end: `${end.x} ${end.y} ${end.z}`,
-      color: "#2c3e50",
-      opacity: 0.85
-    });
-    container.appendChild(line);
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const dist = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+    if (dist < distanceThreshold) {
+      const line = document.createElement("a-entity");
+      line.setAttribute("line", {
+        start: `${p1.x} ${p1.y} ${p1.z}`,
+        end: `${p2.x} ${p2.y} ${p2.z}`,
+        color: "#2c3e50",
+        opacity: 0.85
+      });
+      container.appendChild(line);
+    }
   }
 }
 
@@ -1041,10 +1087,7 @@ function updateAxisLabels() {
 }
 
 function updateTitle() {
-  const title = `${config.type.toUpperCase()}: ${config.yCol} vs ${
-    config.xCol
-  }`;
-  document.getElementById("chartTitle").setAttribute("value", title);
+  // Chart title element removed, so do nothing
 }
 
 function getColor(row, colorGroups, index) {
@@ -1068,90 +1111,66 @@ function clearChart() {
 
 function zoomIn() {
   if (currentZoom > minZoom) {
-    if (currentView === "free") {
-      // Move camera rig incrementally along camera's world direction
-      const cameraRig = document.getElementById("cameraRig");
-      const camera = document.getElementById("camera");
-      const pos = cameraRig.getAttribute("position");
-      const worldDirection = new THREE.Vector3();
-      camera.object3D.getWorldDirection(worldDirection);
-      worldDirection.normalize();
-      // Move by a step (0.5 units)
-      const step = 0.5;
-      const newX = pos.x + worldDirection.x * -step; // -step for zoom in
-      const newY = pos.y + worldDirection.y * -step;
-      const newZ = pos.z + worldDirection.z * -step;
-      cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
-      // Optionally update currentZoom for indicator
-      currentZoom = Math.max(minZoom, currentZoom - step);
-      updateZoomIndicator();
-    } else {
-      currentZoom = Math.max(minZoom, currentZoom - 0.5);
-      updateCameraPosition();
-      updateZoomIndicator();
-    }
+    // Always use the current camera position approach for consistent behavior
+    const cameraRig = document.getElementById("cameraRig");
+    const camera = document.getElementById("camera");
+    const pos = cameraRig.getAttribute("position");
+    const worldDirection = new THREE.Vector3();
+    camera.object3D.getWorldDirection(worldDirection);
+    worldDirection.normalize();
+    // Move by a step (0.5 units)
+    const step = 0.5;
+    const newX = pos.x + worldDirection.x * -step; // -step for zoom in
+    const newY = pos.y + worldDirection.y * -step;
+    const newZ = pos.z + worldDirection.z * -step;
+    cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
+    // Update currentZoom for indicator
+    currentZoom = Math.max(minZoom, currentZoom - step);
+    updateZoomIndicator();
   }
 }
 
 function zoomOut() {
   if (currentZoom < maxZoom) {
-    if (currentView === "free") {
-      // Move camera rig incrementally along camera's world direction
-      const cameraRig = document.getElementById("cameraRig");
-      const camera = document.getElementById("camera");
-      const pos = cameraRig.getAttribute("position");
-      const worldDirection = new THREE.Vector3();
-      camera.object3D.getWorldDirection(worldDirection);
-      worldDirection.normalize();
-      // Move by a step (0.5 units)
-      const step = 0.5;
-      const newX = pos.x + worldDirection.x * step; // +step for zoom out
-      const newY = pos.y + worldDirection.y * step;
-      const newZ = pos.z + worldDirection.z * step;
-      cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
-      // Optionally update currentZoom for indicator
-      currentZoom = Math.min(maxZoom, currentZoom + step);
-      updateZoomIndicator();
-    } else {
-      currentZoom = Math.min(maxZoom, currentZoom + 0.5);
-      updateCameraPosition();
-      updateZoomIndicator();
-    }
+    // Always use the current camera position approach for consistent behavior
+    const cameraRig = document.getElementById("cameraRig");
+    const camera = document.getElementById("camera");
+    const pos = cameraRig.getAttribute("position");
+    const worldDirection = new THREE.Vector3();
+    camera.object3D.getWorldDirection(worldDirection);
+    worldDirection.normalize();
+    // Move by a step (0.5 units)
+    const step = 0.5;
+    const newX = pos.x + worldDirection.x * step; // +step for zoom out
+    const newY = pos.y + worldDirection.y * step;
+    const newZ = pos.z + worldDirection.z * step;
+    cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
+    // Update currentZoom for indicator
+    currentZoom = Math.min(maxZoom, currentZoom + step);
+    updateZoomIndicator();
   }
 }
 
 function updateCameraPosition() {
   const cameraRig = document.getElementById("cameraRig");
   const camera = document.getElementById("camera");
-  const currentPos = cameraRig.getAttribute("position");
-  const currentRot = cameraRig.getAttribute("rotation");
 
   if (currentView === "free") {
-    // Use THREE.js to get the camera's world direction
-    const worldDirection = new THREE.Vector3();
-    camera.object3D.getWorldDirection(worldDirection);
-    // Normalize and scale by currentZoom
-    worldDirection.normalize();
-    const newX = worldDirection.x * currentZoom;
-    const newY = 1.6 + worldDirection.y * currentZoom; // keep base height at 1.6
-    const newZ = worldDirection.z * currentZoom;
-    cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
+    // Always reset to initial position and rotation for Free View
+    cameraRig.setAttribute("position", "0 1.6 8");
+    cameraRig.setAttribute("rotation", "0 0 0");
+  } else if (currentView === "front") {
+    cameraRig.setAttribute("position", "0 1.6 8");
+    cameraRig.setAttribute("rotation", "0 0 0");
+  } else if (currentView === "top") {
+    cameraRig.setAttribute("position", "0 8 0");
+    cameraRig.setAttribute("rotation", "-90 0 0");
+  } else if (currentView === "side") {
+    cameraRig.setAttribute("position", "8 1.6 0");
+    cameraRig.setAttribute("rotation", "0 90 0");
   } else if (currentView === "isometric") {
-    // Move along the (1,1,1) direction, scaled by currentZoom
-    const d = currentZoom / Math.sqrt(3);
-    cameraRig.setAttribute("position", `${d} ${d} ${d}`);
-  } else {
-    // For orthographic views, maintain the view direction but adjust distance
-    const viewConfig = viewPositions[currentView];
-    const [x, y, z] = viewConfig.position.split(" ").map(Number);
-    const scale = currentZoom / 8; // Scale relative to default zoom
-    if (currentView === "top") {
-      cameraRig.setAttribute("position", `0 ${y * scale} 0`);
-    } else if (currentView === "side") {
-      cameraRig.setAttribute("position", `${x * scale} ${y} 0`);
-    } else if (currentView === "front") {
-      cameraRig.setAttribute("position", `0 ${y} ${z * scale}`);
-    }
+    cameraRig.setAttribute("position", "8 8 8");
+    cameraRig.setAttribute("rotation", "-35 45 0");
   }
 }
 
@@ -1166,7 +1185,8 @@ function resetGraphRotation() {
 function resetView() {
   // Fully reset camera view, zoom, and panning
   currentView = "free";
-  currentZoom = 50;
+  currentZoom = defaultZoom;
+  lastSliderZoom = defaultZoom;
   const cameraRig = document.getElementById("cameraRig");
   cameraRig.setAttribute("position", "0 1.6 8");
   cameraRig.setAttribute("rotation", "0 0 0");
@@ -1197,39 +1217,24 @@ function resetView() {
   document
     .getElementById("xAxisLabel")
     .setAttribute(
-      "troika-text",
-      "value: X Axis; color: #ff4757; align: center; fontSize: 0.7; outlineColor: black; outlineWidth: 0.03; maxWidth: 4"
+      "text",
+      "value: X Axis; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf"
     );
   document
     .getElementById("yAxisLabel")
     .setAttribute(
-      "troika-text",
-      "value: Y Axis; color: #2ed573; align: center; fontSize: 0.7; outlineColor: black; outlineWidth: 0.03; maxWidth: 4"
+      "text",
+      "value: Y Axis; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf"
     );
-  document
-    .getElementById("chartTitle")
-    .setAttribute(
-      "troika-text",
-      "value: VR Data Visualization; color: #ffffff; align: center; fontSize: 1.5; outlineColor: black; outlineWidth: 0.04; maxWidth: 10"
-    );
-  // Reset stats
+  // Removed chartTitle reset (element does not exist)
+  // Update stats
   updateStats();
   // Hide error/loading
   showError("");
   showLoading(false);
 }
 
-function toggleVRMode() {
-  const scene = document.getElementById("scene");
 
-  if (!isVRMode) {
-    scene.enterVR();
-    isVRMode = true;
-  } else {
-    scene.exitVR();
-    isVRMode = false;
-  }
-}
 
 function updateStats() {
   const statsEl = document.getElementById("stats");
@@ -1250,6 +1255,17 @@ function showLoading(show) {
   document.getElementById("loading").style.display = show
     ? "block"
     : "none";
+  // Show spinner on Generate button
+  const genBtn = document.getElementById("generateButton");
+  if (genBtn) {
+    if (show) {
+      genBtn.classList.add("loading-spinner");
+      genBtn.disabled = true;
+    } else {
+      genBtn.classList.remove("loading-spinner");
+      genBtn.disabled = false;
+    }
+  }
 }
 
 function showError(message) {
@@ -1262,8 +1278,8 @@ function showError(message) {
 // Generate sample data for demo
 function generateSampleData() {
   const sampleData = [];
-  const categories = ["Tech", "Health", "Finance", "Education", "Sports"];
-  const regions = ["North", "South", "East", "West"];
+  const categories = [];
+  const regions = [];
 
   for (let i = 0; i < 25; i++) {
     sampleData.push({
@@ -1293,8 +1309,15 @@ setTimeout(() => {
   generateChart();
 }, 1000);
 
-// Dragging event handlers
-function handleMouseDown(event) {
+// Rename the original handler
+function baseHandleMouseDown(event) {
+  // Always ignore UI elements
+  if (isUIElement(event.target)) {
+    isInteractingWithUI = true;
+    return;
+  }
+  isInteractingWithUI = false;
+
   // Shift+Left Click for panning
   if (event.shiftKey && event.button === 0 && currentView === "free") {
     isPanning = true;
@@ -1323,7 +1346,42 @@ function handleMouseDown(event) {
   }
 }
 
+// Patch mouse event handlers to support mode toggles
+const origHandleMouseDown = baseHandleMouseDown;
+handleMouseDown = function(event) {
+  // Always ignore UI elements
+  if (isUIElement(event.target)) {
+    isInteractingWithUI = true;
+    return;
+  }
+  isInteractingWithUI = false;
+
+  if (rotateMode && event.button === 0) {
+    isRotating = true;
+    previousMousePosition = { x: event.clientX, y: event.clientY };
+    const cameraEl = document.getElementById('camera');
+    cameraEl.removeAttribute('look-controls');
+    cameraEl.removeAttribute('wasd-controls');
+    event.preventDefault();
+  } else if (panMode && event.button === 0 && currentView === 'free') {
+    isPanning = true;
+    previousMousePosition = { x: event.clientX, y: event.clientY };
+    const cameraEl = document.getElementById('camera');
+    cameraEl.removeAttribute('look-controls');
+    cameraEl.removeAttribute('wasd-controls');
+    event.preventDefault();
+  } else {
+    origHandleMouseDown(event);
+  }
+};
+
+// Update event listeners to use handleMouseDown
+// (If not already, ensure document.addEventListener('mousedown', handleMouseDown); is present)
+document.addEventListener("mousedown", handleMouseDown);
+
 function handleMouseMove(event) {
+  if (isInteractingWithUI) return;
+  if (isUIElement(event.target)) return;
   if (!isPanning && !isRotating) return; // Only handle if panning or rotating
 
   const deltaMove = {
@@ -1398,18 +1456,27 @@ function handleMouseMove(event) {
 }
 
 function handleMouseUp(event) {
+  if (isInteractingWithUI) {
+    isInteractingWithUI = false;
+    return;
+  }
+  if (isUIElement(event.target)) return;
   isPanning = false;
   isRotating = false;
-  // Re-enable A-Frame controls after panning or rotation
+  // Re-enable A-Frame controls after interaction
   const cameraEl = document.getElementById("camera");
-  cameraEl.setAttribute("look-controls", ""); // Re-add with default properties or restore previous if needed
-  cameraEl.setAttribute("wasd-controls", ""); // Re-add with default properties
+  cameraEl.setAttribute("look-controls", "");
+  cameraEl.setAttribute("wasd-controls", "");
 }
 
 // Touch event handlers for mobile panning (one finger drag)
-let lastPinchDistance = null;
 
 function handleTouchStart(event) {
+  if (isUIElement(event.target)) {
+    isInteractingWithUI = true;
+    return;
+  }
+  isInteractingWithUI = false;
   if (event.touches.length === 1) {
     previousMousePosition = {
       x: event.touches[0].clientX,
@@ -1432,10 +1499,14 @@ function handleTouchStart(event) {
       event.touches[0].clientX - event.touches[1].clientX,
       event.touches[0].clientY - event.touches[1].clientY
     );
+    // Prevent default browser zoom
+    event.preventDefault();
   }
 }
 
 function handleTouchMove(event) {
+  if (isInteractingWithUI) return;
+  if (isUIElement(event.target)) return;
   if (event.touches.length === 1) {
     const deltaMove = {
       x: event.touches[0].clientX - previousMousePosition.x,
@@ -1493,22 +1564,55 @@ function handleTouchMove(event) {
     if (lastPinchDistance !== null) {
       const delta = pinchDistance - lastPinchDistance;
       if (Math.abs(delta) > 2) {
+        // Use the same approach as zoomIn/zoomOut for consistent behavior
+        const cameraRig = document.getElementById("cameraRig");
+        const camera = document.getElementById("camera");
+        const pos = cameraRig.getAttribute("position");
+        const worldDirection = new THREE.Vector3();
+        camera.object3D.getWorldDirection(worldDirection);
+        worldDirection.normalize();
+        
+        // Calculate zoom step based on delta
+        const zoomStep = delta * 0.01; // Adjust sensitivity
+        const step = Math.abs(zoomStep);
+        
         if (delta > 0) {
-          currentZoom = Math.max(minZoom, currentZoom - 1);
+          // Zoom in
+          if (currentZoom > minZoom) {
+            const newX = pos.x + worldDirection.x * -step;
+            const newY = pos.y + worldDirection.y * -step;
+            const newZ = pos.z + worldDirection.z * -step;
+            cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
+            currentZoom = Math.max(minZoom, currentZoom - step);
+          }
         } else {
-          currentZoom = Math.min(maxZoom, currentZoom + 1);
+          // Zoom out
+          if (currentZoom < maxZoom) {
+            const newX = pos.x + worldDirection.x * step;
+            const newY = pos.y + worldDirection.y * step;
+            const newZ = pos.z + worldDirection.z * step;
+            cameraRig.setAttribute("position", `${newX} ${newY} ${newZ}`);
+            currentZoom = Math.min(maxZoom, currentZoom + step);
+          }
         }
-        updateCameraPosition();
+        
         updateZoomIndicator();
         lastPinchDistance = pinchDistance;
       }
     } else {
       lastPinchDistance = pinchDistance;
     }
+    // Prevent default browser zoom
+    event.preventDefault();
   }
 }
 
 function handleTouchEnd(event) {
+  if (isInteractingWithUI) {
+    isInteractingWithUI = false;
+    return;
+  }
+  if (isUIElement(event.target)) return;
   isPanning = false;
   isRotating = false;
   lastPinchDistance = null;
@@ -1533,8 +1637,7 @@ function setView(view) {
   const cameraRig = document.getElementById("cameraRig");
   const viewConfig = viewPositions[view];
 
-  // Update camera position and rotation
-  cameraRig.setAttribute("position", viewConfig.position);
+  // Only update camera rotation, not zoom
   cameraRig.setAttribute("rotation", viewConfig.rotation);
 
   // Update button states
@@ -1545,12 +1648,8 @@ function setView(view) {
     }
   });
 
-  // Reset zoom for orthographic views
-  if (view !== "free") {
-    currentZoom = 8;
-    updateCameraPosition();
-    updateZoomIndicator();
-  }
+  // Update camera position to preserve currentZoom (distance from graph)
+  updateCameraPosition();
 }
 
 // In script, add event listener for chartType to show/hide function input
@@ -1560,7 +1659,18 @@ document
     const isFunction = this.value === "function";
     document.getElementById("functionInputGroup").style.display =
       isFunction ? "" : "none";
+    document.getElementById("equationDropdownGroup").style.display = isFunction ? "" : "none";
   });
+
+// Populate the function input when an equation is selected
+const equationDropdown = document.getElementById("equationDropdown");
+if (equationDropdown) {
+  equationDropdown.addEventListener("change", function () {
+    if (this.value) {
+      document.getElementById("functionInput").value = this.value;
+    }
+  });
+}
 
 // Add createFunctionPlot function
 function createFunctionPlot() {
@@ -1571,10 +1681,6 @@ function createFunctionPlot() {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-
-  // Clear previous content
-  container.innerHTML = "";
-  labelsContainer.innerHTML = "";
 
   // Colors for multiple plots
   const plotColors = [
@@ -1590,21 +1696,19 @@ function createFunctionPlot() {
 
   funcLines.forEach((line, idx) => {
     const color = plotColors[idx % plotColors.length];
-
-    // Check if it's a 3D function (contains 'y' variable and no equals sign)
-    // Also check that it's not an equation like "y = f(x)"
-    if (
+    // Treat 'y = ...' as a 2D function plot
+    if (/^y\s*=/.test(line)) {
+      const rhs = line.split('=')[1].trim();
+      createSingleFunctionPlot(rhs, color);
+    } else if (
       line.includes("y") &&
       !line.includes("=") &&
-      !line.match(/^y\s*=/i)
+      !line.match(/^y\s*=|^y\s*=/i)
     ) {
-      console.log("Detected 3D function:", line);
       create3DFunctionPlot(line, color);
     } else if (line.includes("=")) {
-      console.log("Detected equation:", line);
       createGeneralEquationPlot(line, color);
     } else {
-      console.log("Detected 2D function:", line);
       createSingleFunctionPlot(line, color);
     }
   });
@@ -1617,184 +1721,6 @@ function createFunctionPlot() {
   } else {
     add2DAxisLabels();
   }
-}
-
-function add3DAxisLabels() {
-  const labelsContainer = document.getElementById("labelsContainer");
-  const xMin = -5,
-    xMax = 5,
-    yMin = -5,
-    yMax = 5;
-
-  // X-axis value labels
-  for (let x = xMin; x <= xMax; x += 1) {
-    const label = document.createElement("a-entity");
-    label.setAttribute(
-      "text",
-      `value: ${x}; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf`
-    );
-    label.setAttribute("position", `${x} -0.3 0`);
-    label.setAttribute("scale", "0.4 0.4 0.4");
-    label.setAttribute('data-label-type', 'label');
-    labelsContainer.appendChild(label);
-  }
-
-  // Y-axis value labels
-  for (let y = yMin; y <= yMax; y += 1) {
-    const label = document.createElement("a-entity");
-    label.setAttribute(
-      "text",
-      `value: ${y}; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf`
-    );
-    label.setAttribute("position", `-0.3 0 ${y}`);
-    label.setAttribute("scale", "0.4 0.4 0.4");
-    labelsContainer.appendChild(label);
-  }
-
-  // Z-axis value labels (on a vertical line)
-  for (let z = -3; z <= 3; z += 1) {
-    const label = document.createElement("a-entity");
-    label.setAttribute(
-      "text",
-      `value: ${z}; color: #3742fa; align: center; baseline: center; wrapCount: 12; shader: msdf`
-    );
-    label.setAttribute("position", `-0.3 ${z} 0`);
-    label.setAttribute("scale", "0.4 0.4 0.4");
-    labelsContainer.appendChild(label);
-  }
-}
-
-function add2DAxisLabels() {
-  const labelsContainer = document.getElementById("labelsContainer");
-  const xMin = -10,
-    xMax = 10;
-  const yMin = -10,
-    yMax = 10;
-
-  // X-axis value labels
-  for (let x = xMin; x <= xMax; x += 2) {
-    const label = document.createElement("a-entity");
-    label.setAttribute(
-      "text",
-      `value: ${x}; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf`
-    );
-    label.setAttribute("position", `${x} -0.3 0`);
-    label.setAttribute("scale", "0.4 0.4 0.4");
-    labelsContainer.appendChild(label);
-  }
-
-  // Y-axis value labels
-  for (let y = yMin; y <= yMax; y += 2) {
-    const label = document.createElement("a-entity");
-    label.setAttribute(
-      "text",
-      `value: ${y}; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf`
-    );
-    label.setAttribute("position", `-0.3 ${y} 0`);
-    label.setAttribute("scale", "0.4 0.4 0.4");
-    labelsContainer.appendChild(label);
-  }
-}
-
-function create3DFunctionPlot(funcStr, color = "#ffeb3b") {
-  console.log("Creating 3D function plot for:", funcStr);
-  const container = document.getElementById("dataContainer");
-  const mathFunc = parse3DMathFunction(funcStr);
-  const xMin = -5,
-    xMax = 5,
-    yMin = -5,
-    yMax = 5;
-
-  // Get detail level setting
-  const detailLevel = document.getElementById("detailLevel").value;
-  let step, contourStep;
-
-  switch (detailLevel) {
-    case "low":
-      step = 1.0;
-      contourStep = 2.0;
-      break;
-    case "high":
-      step = 0.1;
-      contourStep = 0.2;
-      break;
-    case "ultra":
-      step = 0.05;
-      contourStep = 0.1;
-      break;
-    default: // medium
-      step = 0.5;
-      contourStep = 1.0;
-  }
-
-  // Generate 3D surface points as a 2D grid
-  const gridPoints = [];
-  const points = [];
-  for (let xi = 0, x = xMin; x <= xMax + 0.0001; xi++, x += step) {
-    const row = [];
-    for (let yi = 0, y = yMin; y <= yMax + 0.0001; yi++, y += step) {
-      let z = 0;
-      try {
-        z = mathFunc(x, y);
-        if (isFinite(z) && z >= -10 && z <= 10) {
-          row.push({ x, y, z });
-          points.push({ x, y, z });
-        } else {
-          row.push(null);
-        }
-      } catch (e) {
-        row.push(null);
-      }
-    }
-    gridPoints.push(row);
-  }
-
-  // Draw mesh lines between adjacent points in the grid
-  for (let i = 0; i < gridPoints.length; i++) {
-    for (let j = 0; j < gridPoints[i].length; j++) {
-      const p = gridPoints[i][j];
-      if (!p) continue;
-      // Line to right neighbor
-      if (j < gridPoints[i].length - 1 && gridPoints[i][j + 1]) {
-        const p2 = gridPoints[i][j + 1];
-        const line = document.createElement("a-entity");
-        line.setAttribute("line", {
-          start: `${p.x} ${p.z} ${p.y}`,
-          end: `${p2.x} ${p2.z} ${p2.y}`,
-          color: color,
-          opacity: 0.7
-        });
-        container.appendChild(line);
-      }
-      // Line to bottom neighbor
-      if (i < gridPoints.length - 1 && gridPoints[i + 1][j]) {
-        const p2 = gridPoints[i + 1][j];
-        const line = document.createElement("a-entity");
-        line.setAttribute("line", {
-          start: `${p.x} ${p.z} ${p.y}`,
-          end: `${p2.x} ${p2.z} ${p2.y}`,
-          color: color,
-          opacity: 0.7
-        });
-        container.appendChild(line);
-      }
-    }
-  }
-
-  // Add points at regular intervals for visual reference
-  points.forEach((p, idx) => {
-    if (idx % 100 === 0) {
-      const sphere = document.createElement("a-sphere");
-      sphere.setAttribute("position", `${p.x} ${p.z} ${p.y}`);
-      sphere.setAttribute("radius", "0.05");
-      sphere.setAttribute(
-        "material",
-        `color: ${color}; metalness: 0.5; roughness: 0.3`
-      );
-      container.appendChild(sphere);
-    }
-  });
-  console.log("Created 3D mesh lines for surface");
 }
 
 function createSingleFunctionPlot(funcStr, color = "#ffeb3b") {
@@ -1899,9 +1825,34 @@ function createGeneralEquationPlot(equation, color = "#ffeb3b") {
         continue;
       }
     }
+    // Sort points by y for smooth curve
+    points.sort((a, b) => a.y - b.y);
+    // Draw as a smooth line using aframe-line-component between each pair, only if close
+    const distanceThreshold = 1.5; // Only connect points that are close
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const dist = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+      if (dist < distanceThreshold) {
+        const line = document.createElement("a-entity");
+        line.setAttribute("line", {
+          start: `${p1.x} ${p1.y} ${p1.z}`,
+          end: `${p2.x} ${p2.y} ${p2.z}`,
+          color: color,
+          opacity: 0.95
+        });
+        container.appendChild(line);
+      }
+    }
   } else {
     // Implicit equation: grid search
-    const errorMargin = 0.03; // smaller margin for accuracy
+    let errorMargin = 0.03;
+    // Try to adapt errorMargin for circle-like equations
+    const rMatch = rightSide.match(/^([0-9.]+)/);
+    if (rMatch) {
+      const r = Math.sqrt(Number(rMatch[1]));
+      errorMargin = Math.max(0.03, 0.03 * r);
+    }
     const seen = new Set();
     for (let x = xMin; x <= xMax; x += step) {
       for (let y = yMin; y <= yMax; y += step) {
@@ -1931,30 +1882,48 @@ function createGeneralEquationPlot(equation, color = "#ffeb3b") {
         }
       }
     }
-  }
-  // Draw as a smooth line using aframe-line-component between each pair
-  for (let i = 0; i < points.length - 1; i++) {
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const line = document.createElement("a-entity");
-    line.setAttribute("line", {
-      start: `${p1.x} ${p1.y} ${p1.z}`,
-      end: `${p2.x} ${p2.y} ${p2.z}`,
-      color: color,
-      opacity: 0.95
-    });
-    container.appendChild(line);
-  }
-  // Add points at regular intervals for visual reference
-  points.forEach((point, idx) => {
-    if (idx % 50 === 0) {
-      const pt = document.createElement("a-sphere");
-      pt.setAttribute("position", `${point.x} ${point.y} ${point.z}`);
-      pt.setAttribute("radius", "0.03");
-      pt.setAttribute("material", `color: ${color}; metalness: 0.3`);
-      container.appendChild(pt);
+    // Always treat implicit equations as closed curves
+    if (points.length > 2) {
+      let cx = 0, cy = 0;
+      for (const p of points) { cx += p.x; cy += p.y; }
+      cx /= points.length; cy /= points.length;
+      points.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
     }
-  });
+    // Draw as a smooth line using aframe-line-component between each pair
+    const distanceThreshold = 1.5;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const dist = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+      if (dist < distanceThreshold) {
+        const line = document.createElement("a-entity");
+        line.setAttribute("line", {
+          start: `${p1.x} ${p1.y} ${p1.z}`,
+          end: `${p2.x} ${p2.y} ${p2.z}`,
+          color: color,
+          opacity: 0.95
+        });
+        container.appendChild(line);
+      }
+    }
+    // Always connect last to first for implicit (closed) curves
+    if (points.length > 2) {
+      const p1 = points[points.length - 1];
+      const p2 = points[0];
+      const dist = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+      if (dist < distanceThreshold) {
+        const line = document.createElement("a-entity");
+        line.setAttribute("line", {
+          start: `${p1.x} ${p1.y} ${p1.z}`,
+          end: `${p2.x} ${p2.y} ${p2.z}`,
+          color: color,
+          opacity: 0.95
+        });
+        container.appendChild(line);
+      }
+    }
+    return;
+  }
 }
 
 function parseMathFunction(str, variable = 'x') {
@@ -2080,13 +2049,7 @@ function unloadCSV() {
       "text",
       "value: Y Axis; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf"
     );
-  document
-    .getElementById("chartTitle")
-    .setAttribute(
-      "text",
-      "value: VR Data Visualization; color: #ffffff; align: center; baseline: center; wrapCount: 24; shader: msdf"
-    );
-
+  // Removed chartTitle reset (element does not exist)
   // Update stats
   updateStats();
 
@@ -2127,35 +2090,6 @@ function createXZFloorGrid() {
   }
 }
 
-let isCameraBg = false;
-let cameraStream = null;
-const cameraVideo = document.getElementById('cameraVideo');
-const cameraSky = document.getElementById('cameraSky');
-const scene = document.getElementById('scene');
-const toggleCameraBgBtn = document.getElementById('toggleCameraBgBtn');
-
-toggleCameraBgBtn.addEventListener('click', async function () {
-  if (!isCameraBg) {
-    // Request camera access
-    try {
-      if (!cameraStream) {
-        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-        cameraVideo.srcObject = cameraStream;
-        await cameraVideo.play();
-      }
-      cameraSky.setAttribute('src', '#cameraVideo');
-      cameraSky.setAttribute('visible', 'true');
-      scene.setAttribute('background', 'color: transparent');
-      isCameraBg = true;
-    } catch (err) {
-      showError('Camera access denied or not available.');
-    }
-  } else {
-    cameraSky.setAttribute('visible', 'false');
-    scene.setAttribute('background', 'color: #1a1a2e');
-    isCameraBg = false;
-  }
-});
 
 let rotateMode = false;
 let panMode = false;
@@ -2188,34 +2122,24 @@ function updateModeButtons() {
   }
 }
 
-// Patch mouse event handlers to support mode toggles
-const origHandleMouseDown = handleMouseDown;
-handleMouseDown = function(event) {
-  if (rotateMode && event.button === 0) {
-    isRotating = true;
-    previousMousePosition = { x: event.clientX, y: event.clientY };
-    const cameraEl = document.getElementById('camera');
-    cameraEl.removeAttribute('look-controls');
-    cameraEl.removeAttribute('wasd-controls');
-    event.preventDefault();
-  } else if (panMode && event.button === 0 && currentView === 'free') {
-    isPanning = true;
-    previousMousePosition = { x: event.clientX, y: event.clientY };
-    const cameraEl = document.getElementById('camera');
-    cameraEl.removeAttribute('look-controls');
-    cameraEl.removeAttribute('wasd-controls');
-    event.preventDefault();
-  } else {
-    origHandleMouseDown(event);
-  }
-};
-
 // Sidebar toggle logic
 const sidebar = document.querySelector('.control-panel');
 const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
 const sidebarArrow = document.getElementById('sidebarArrow');
 let sidebarHidden = true; // Hide sidebar by default
 
+function updateSidebarToggleBtnPosition() {
+  const sidebar = document.querySelector('.control-panel');
+  const btn = document.querySelector('.sidebar-toggle-btn');
+  if (!btn || !sidebar) return;
+  if (document.body.classList.contains('sidebar-open')) {
+    btn.style.left = (sidebar.offsetLeft + sidebar.offsetWidth) + 'px';
+  } else {
+    btn.style.left = '0px';
+  }
+}
+
+// Update sidebar toggle logic to call this function
 sidebarToggleBtn.addEventListener('click', function() {
   sidebarHidden = !sidebarHidden;
   if (sidebarHidden) {
@@ -2224,14 +2148,20 @@ sidebarToggleBtn.addEventListener('click', function() {
     sidebarToggleBtn.title = 'Show sidebar';
     // Change arrow to right
     sidebarArrow.setAttribute('points', '12,8 20,16 12,24');
+    document.body.classList.remove('sidebar-open');
   } else {
     sidebar.style.transform = 'translateX(0)';
     sidebar.style.transition = 'transform 0.4s cubic-bezier(.77,0,.18,1)';
     sidebarToggleBtn.title = 'Hide sidebar';
     // Change arrow to left
     sidebarArrow.setAttribute('points', '20,8 12,16 20,24');
+    document.body.classList.add('sidebar-open');
   }
+  updateSidebarToggleBtnPosition();
 });
+
+window.addEventListener('resize', updateSidebarToggleBtnPosition);
+window.addEventListener('DOMContentLoaded', updateSidebarToggleBtnPosition);
 
 // On DOMContentLoaded, hide sidebar initially
 window.addEventListener('DOMContentLoaded', function() {
@@ -2241,6 +2171,15 @@ window.addEventListener('DOMContentLoaded', function() {
   sidebarToggleBtn.title = 'Show sidebar';
   // Change arrow to right
   sidebarArrow.setAttribute('points', '12,8 20,16 12,24');
+  document.body.classList.remove('sidebar-open');
+
+  // Nudge animation for first-time users
+  if (sidebarHidden) {
+    sidebarToggleBtn.classList.add('nudge-animate');
+    setTimeout(() => {
+      sidebarToggleBtn.classList.remove('nudge-animate');
+    }, 2400); // 2 cycles of 1.2s each
+  }
 });
 
 // --- Robust Error Handling for Network and JS Errors ---
@@ -2351,3 +2290,223 @@ resetView = function() {
   createXZFloorGrid();
   updateAxisSize();
 };
+
+function updateZoomIndicator() {
+  const zoomPercentage = Math.round(
+    ((currentZoom - minZoom) / (maxZoom - minZoom)) * 100
+  );
+  zoomIndicator.textContent = `Zoom: ${zoomPercentage}%`;
+
+  // Show warning when zoomed very close
+  if (currentZoom < 2) {
+    zoomIndicator.style.background = "rgba(255, 0, 0, 0.7)";
+    zoomIndicator.style.display = "block";
+  } else {
+    zoomIndicator.style.background = "rgba(0, 0, 0, 0.7)";
+    zoomIndicator.style.display = "block";
+  }
+
+  // Hide indicator after 2 seconds if not in warning state
+  if (currentZoom >= 2) {
+    setTimeout(() => {
+      if (currentZoom >= 2) {
+        zoomIndicator.style.display = "none";
+      }
+    }, 2000);
+  }
+
+  const zoomSlider = document.getElementById("zoomSlider");
+  if (zoomSlider) {
+    // Invert the value for reversed direction
+    zoomSlider.value = maxZoom - (currentZoom - minZoom);
+    lastSliderZoom = currentZoom;
+  }
+}
+
+// Utility function to check if event target is a UI element
+function isUIElement(target) {
+  return (
+    target.closest && (
+      target.closest('.control-panel') ||
+      target.closest('.zoom-slider-container') ||
+      target.closest('.zoom-controls')
+    ) ||
+    target.tagName === 'INPUT' ||
+    target.tagName === 'SELECT' ||
+    target.tagName === 'BUTTON' ||
+    target.tagName === 'TEXTAREA'
+  );
+}
+
+let isInteractingWithUI = false;
+
+function add2DAxisLabels() {
+  const labelsContainer = document.getElementById("labelsContainer");
+  const xMin = -10,
+    xMax = 10;
+  const yMin = -10,
+    yMax = 10;
+
+  // X-axis value labels
+  for (let x = xMin; x <= xMax; x += 2) {
+    const label = document.createElement("a-entity");
+    label.setAttribute(
+      "text",
+      `value: ${x}; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf`
+    );
+    label.setAttribute("position", `${x} -0.3 0`);
+    label.setAttribute("scale", "0.4 0.4 0.4");
+    labelsContainer.appendChild(label);
+  }
+
+  // Y-axis value labels
+  for (let y = yMin; y <= yMax; y += 2) {
+    const label = document.createElement("a-entity");
+    label.setAttribute(
+      "text",
+      `value: ${y}; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf`
+    );
+    label.setAttribute("position", `-0.3 ${y} 0`);
+    label.setAttribute("scale", "0.4 0.4 0.4");
+    labelsContainer.appendChild(label);
+  }
+}
+
+function create3DFunctionPlot(funcStr, color = "#ffeb3b") {
+  const container = document.getElementById("dataContainer");
+  const mathFunc = parse3DMathFunction(funcStr);
+  const xMin = -5, xMax = 5, yMin = -5, yMax = 5;
+
+  // Get detail level setting
+  const detailLevel = document.getElementById("detailLevel").value;
+  let step, contourStep;
+  switch (detailLevel) {
+    case "low": step = 1.0; contourStep = 2.0; break;
+    case "high": step = 0.1; contourStep = 0.2; break;
+    case "ultra": step = 0.05; contourStep = 0.1; break;
+    default: step = 0.5; contourStep = 1.0;
+  }
+
+  // Generate 3D surface points as a 2D grid
+  const gridPoints = [];
+  const points = [];
+  for (let xi = 0, x = xMin; x <= xMax + 0.0001; xi++, x += step) {
+    const row = [];
+    for (let yi = 0, y = yMin; y <= yMax + 0.0001; yi++, y += step) {
+      let z = 0;
+      try {
+        z = mathFunc(x, y);
+        if (isFinite(z) && z >= -10 && z <= 10) {
+          row.push({ x, y, z });
+          points.push({ x, y, z });
+        } else {
+          row.push(null);
+        }
+      } catch (e) {
+        row.push(null);
+      }
+    }
+    gridPoints.push(row);
+  }
+
+  // Draw mesh lines between adjacent points in the grid
+  for (let i = 0; i < gridPoints.length; i++) {
+    for (let j = 0; j < gridPoints[i].length; j++) {
+      const p = gridPoints[i][j];
+      if (!p) continue;
+      // Line to right neighbor
+      if (j < gridPoints[i].length - 1 && gridPoints[i][j + 1]) {
+        const p2 = gridPoints[i][j + 1];
+        const line = document.createElement("a-entity");
+        line.setAttribute("line", {
+          start: `${p.x} ${p.y} ${p.z}`,
+          end: `${p2.x} ${p2.y} ${p2.z}`,
+          color: color,
+          opacity: 0.7
+        });
+        container.appendChild(line);
+      }
+      // Line to bottom neighbor
+      if (i < gridPoints.length - 1 && gridPoints[i + 1][j]) {
+        const p2 = gridPoints[i + 1][j];
+        const line = document.createElement("a-entity");
+        line.setAttribute("line", {
+          start: `${p.x} ${p.y} ${p.z}`,
+          end: `${p2.x} ${p2.y} ${p2.z}`,
+          color: color,
+          opacity: 0.7
+        });
+        container.appendChild(line);
+      }
+    }
+  }
+
+  // Add points at regular intervals for visual reference
+  points.forEach((p, idx) => {
+    if (idx % 100 === 0) {
+      const sphere = document.createElement("a-sphere");
+      sphere.setAttribute("position", `${p.x} ${p.y} ${p.z}`);
+      sphere.setAttribute("radius", "0.05");
+      sphere.setAttribute("material", `color: ${color}; metalness: 0.5; roughness: 0.3`);
+      container.appendChild(sphere);
+    }
+  });
+}
+
+function add3DAxisLabels() {
+  const labelsContainer = document.getElementById("labelsContainer");
+  const xMin = -5, xMax = 5, yMin = -5, yMax = 5;
+
+  // X-axis value labels
+  for (let x = xMin; x <= xMax; x += 1) {
+    const label = document.createElement("a-entity");
+    label.setAttribute(
+      "text",
+      `value: ${x}; color: #ff4757; align: center; baseline: center; wrapCount: 12; shader: msdf`
+    );
+    label.setAttribute("position", `${x} -0.3 0`);
+    label.setAttribute("scale", "0.4 0.4 0.4");
+    label.setAttribute('data-label-type', 'label');
+    labelsContainer.appendChild(label);
+  }
+
+  // Y-axis value labels
+  for (let y = yMin; y <= yMax; y += 1) {
+    const label = document.createElement("a-entity");
+    label.setAttribute(
+      "text",
+      `value: ${y}; color: #2ed573; align: center; baseline: center; wrapCount: 12; shader: msdf`
+    );
+    label.setAttribute("position", `-0.3 0 ${y}`);
+    label.setAttribute("scale", "0.4 0.4 0.4");
+    labelsContainer.appendChild(label);
+  }
+
+  // Z-axis value labels (on a vertical line)
+  for (let z = -3; z <= 3; z += 1) {
+    const label = document.createElement("a-entity");
+    label.setAttribute(
+      "text",
+      `value: ${z}; color: #3742fa; align: center; baseline: center; wrapCount: 12; shader: msdf`
+    );
+    label.setAttribute("position", `-0.3 ${z} 0`);
+    label.setAttribute("scale", "0.4 0.4 0.4");
+    labelsContainer.appendChild(label);
+  }
+}
+
+let gyroEnabled = false;
+
+function toggleGyroControl() {
+  const cameraEl = document.getElementById("camera");
+  const gyroBtn = document.getElementById('gyroToggleBtn');
+  if (!gyroEnabled) {
+    cameraEl.setAttribute("look-controls", "");
+    gyroEnabled = true;
+    if (gyroBtn) gyroBtn.classList.add('active');
+  } else {
+    cameraEl.removeAttribute("look-controls");
+    gyroEnabled = false;
+    if (gyroBtn) gyroBtn.classList.remove('active');
+  }
+}
