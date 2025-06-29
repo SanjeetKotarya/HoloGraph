@@ -241,6 +241,36 @@ document.addEventListener("DOMContentLoaded", function () {
   gyroEnabled = false;
   const gyroBtn = document.getElementById('gyroToggleBtn');
   if (gyroBtn) gyroBtn.classList.remove('active');
+
+  // Store the last manual camera rotation (for non-gyro mode)
+  let lastManualCameraRotation = { x: 0, y: 0, z: 0 };
+
+  // Patch camera rotation after manual controls (mouse/touch)
+  function setCameraManualRotationFromRig() {
+    const cameraRig = document.getElementById('cameraRig');
+    if (cameraRig) {
+      const rot = cameraRig.getAttribute('rotation');
+      if (rot) {
+        lastManualCameraRotation = { x: rot.x || 0, y: rot.y || 0, z: rot.z || 0 };
+      }
+    }
+  }
+  // Call this after manual camera moves
+  document.addEventListener('mouseup', setCameraManualRotationFromRig);
+  document.addEventListener('touchend', setCameraManualRotationFromRig);
+
+  // Add a tick function to the camera to forcibly set rotation when gyro is off
+  AFRAME.registerComponent('gyro-blocker', {
+    tick: function () {
+      if (!window.gyroEnabled) {
+        // Force camera rotation to last manual value
+        this.el.setAttribute('rotation', `${lastManualCameraRotation.x} ${lastManualCameraRotation.y} ${lastManualCameraRotation.z}`);
+      }
+    }
+  });
+
+  // Attach the gyro-blocker component to the camera
+  cameraEl.setAttribute('gyro-blocker', '');
 });
 
 // Mouse wheel zoom with smoother control
