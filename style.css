@@ -260,7 +260,7 @@ select {
 
 .zoom-controls {
   position: absolute;
-  bottom: 60px;
+  bottom: 40px;
   right: 20px;
   z-index: 100;
   display: flex;
@@ -687,7 +687,7 @@ body.sidebar-open .sidebar-toggle-btn {
 .zoom-slider-container {
   position: fixed;
   right: 24px;
-  bottom: 260px;
+  bottom: 200px;
   height: 200px;
   display: flex;
   align-items: center;
@@ -751,12 +751,12 @@ body.sidebar-open .sidebar-toggle-btn {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
-  margin-top: -8px;
-  border: 2px solid #fff;
-  border-top: 2px solid #21e6c1;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border: 3px solid #fff;
+  border-top: 3px solid #21e6c1;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   z-index: 2;
