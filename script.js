@@ -643,21 +643,17 @@ function createLineChart(data) {
   }
 
   // Draw lines between consecutive points using aframe-line-component
-  const distanceThreshold = 1.5; // Only connect points that are close
   for (let i = 0; i < points.length - 1; i++) {
     const p1 = points[i];
     const p2 = points[i + 1];
-    const dist = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
-    if (dist < distanceThreshold) {
-      const line = document.createElement("a-entity");
-      line.setAttribute("line", {
-        start: `${p1.x} ${p1.y} ${p1.z}`,
-        end: `${p2.x} ${p2.y} ${p2.z}`,
-        color: "#2c3e50",
-        opacity: 0.85
-      });
-      container.appendChild(line);
-    }
+    const line = document.createElement("a-entity");
+    line.setAttribute("line", {
+      start: `${p1.x} ${p1.y} ${p1.z}`,
+      end: `${p2.x} ${p2.y} ${p2.z}`,
+      color: "#2c3e50",
+      opacity: 0.85
+    });
+    container.appendChild(line);
   }
 }
 
@@ -1696,16 +1692,13 @@ function createFunctionPlot() {
 
   funcLines.forEach((line, idx) => {
     const color = plotColors[idx % plotColors.length];
-    // Treat 'y = ...' as a 2D function plot
-    if (/^y\s*=/.test(line)) {
+    const trimmed = line.replace(/\s/g, "").toLowerCase();
+    if (trimmed.startsWith("y=")) {
       const rhs = line.split('=')[1].trim();
       createSingleFunctionPlot(rhs, color);
-    } else if (
-      line.includes("y") &&
-      !line.includes("=") &&
-      !line.match(/^y\s*=|^y\s*=/i)
-    ) {
-      create3DFunctionPlot(line, color);
+    } else if (trimmed.startsWith("x=")) {
+      const rhs = line.split('=')[1].trim();
+      createGeneralEquationPlot(line, color);
     } else if (line.includes("=")) {
       createGeneralEquationPlot(line, color);
     } else {
@@ -1724,6 +1717,7 @@ function createFunctionPlot() {
 }
 
 function createSingleFunctionPlot(funcStr, color = "#ffeb3b") {
+  funcStr = funcStr.replace(/\^/g, "**"); // Ensure power operator is JS compatible
   const container = document.getElementById("dataContainer");
   const mathFunc = parseMathFunction(funcStr);
   const points = [];
