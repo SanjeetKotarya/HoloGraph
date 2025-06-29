@@ -234,6 +234,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // Gyro control: default OFF
   const cameraEl = document.getElementById("camera");
   cameraEl.removeAttribute("look-controls");
+  // If look-controls component exists, pause it
+  if (cameraEl.components && cameraEl.components['look-controls']) {
+    cameraEl.components['look-controls'].pause();
+  }
   gyroEnabled = false;
   const gyroBtn = document.getElementById('gyroToggleBtn');
   if (gyroBtn) gyroBtn.classList.remove('active');
@@ -2501,11 +2505,25 @@ function toggleGyroControl() {
   const cameraEl = document.getElementById("camera");
   const gyroBtn = document.getElementById('gyroToggleBtn');
   if (!gyroEnabled) {
-    cameraEl.setAttribute("look-controls", "");
+    // Enable gyro: add attribute if missing, then play
+    if (!cameraEl.hasAttribute('look-controls')) {
+      cameraEl.setAttribute('look-controls', '');
+    }
+    // Wait for component to be available, then play
+    setTimeout(() => {
+      if (cameraEl.components && cameraEl.components['look-controls']) {
+        cameraEl.components['look-controls'].play();
+      }
+    }, 0);
     gyroEnabled = true;
     if (gyroBtn) gyroBtn.classList.add('active');
   } else {
-    cameraEl.removeAttribute("look-controls");
+    // Disable gyro: pause the component if present
+    if (cameraEl.components && cameraEl.components['look-controls']) {
+      cameraEl.components['look-controls'].pause();
+    }
+    // Optionally remove the attribute
+    cameraEl.removeAttribute('look-controls');
     gyroEnabled = false;
     if (gyroBtn) gyroBtn.classList.remove('active');
   }
