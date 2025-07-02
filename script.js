@@ -1701,6 +1701,9 @@ function createFunctionPlot() {
       createGeneralEquationPlot(line, color);
     } else if (line.includes("=")) {
       createGeneralEquationPlot(line, color);
+    } else if (/\bx\b/.test(line) && /\by\b/.test(line)) {
+      // If both x and y are present, treat as z = f(x, y)
+      create3DFunctionPlot(line, color);
     } else {
       createSingleFunctionPlot(line, color);
     }
