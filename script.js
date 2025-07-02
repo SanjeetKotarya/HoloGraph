@@ -2489,4 +2489,18 @@ function add3DAxisLabels() {
   }
 }
 
+// Request storage permission on Cordova deviceready
+document.addEventListener('deviceready', function() {
+  if (window.cordova && window.cordova.plugins && window.cordova.plugins.permissions) {
+    var permissions = window.cordova.plugins.permissions;
+    permissions.requestPermission(permissions.READ_EXTERNAL_STORAGE, function(status) {
+      if (!status.hasPermission) {
+        alert('Storage permission is required to load files.');
+      }
+    }, function() {
+      alert('Permission request failed');
+    });
+  }
+});
+
 
