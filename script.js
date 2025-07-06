@@ -11,6 +11,33 @@ let config = {
   showValues: true,
 };
 
+// Splash Screen Management
+function hideSplashScreen() {
+  const splashScreen = document.getElementById('splashScreen');
+  if (splashScreen) {
+    splashScreen.classList.add('hidden');
+    // Remove the splash screen from DOM after animation completes
+    setTimeout(() => {
+      splashScreen.remove();
+    }, 500);
+  }
+}
+
+// Show splash screen initially
+document.addEventListener('DOMContentLoaded', function() {
+  // Hide splash screen after a minimum time to ensure smooth experience
+  setTimeout(() => {
+    hideSplashScreen();
+  }, 1500); // Show splash for at least 1.5 seconds
+});
+
+// Also hide splash screen when window is fully loaded
+window.addEventListener('load', function() {
+  setTimeout(() => {
+    hideSplashScreen();
+  }, 500); // Additional delay if page loads quickly
+});
+
 let isVRMode = false;
 const minZoom = 0.5; // Allow zooming much closer
 const maxZoom = 200; // Increased max zoom to 200
@@ -161,10 +188,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // Show function input group if chartType is 'function' on load
   const chartTypeSelect = document.getElementById('chartType');
   const functionInputGroup = document.getElementById('functionInputGroup');
-  const equationDropdownGroup = document.getElementById('equationDropdownGroup');
   if (chartTypeSelect.value === 'function') {
     functionInputGroup.style.display = '';
-    if (equationDropdownGroup) equationDropdownGroup.style.display = '';
   }
 
   // Prevent background scroll when scrolling inside the sidebar
@@ -1655,18 +1680,7 @@ document
     const isFunction = this.value === "function";
     document.getElementById("functionInputGroup").style.display =
       isFunction ? "" : "none";
-    document.getElementById("equationDropdownGroup").style.display = isFunction ? "" : "none";
   });
-
-// Populate the function input when an equation is selected
-const equationDropdown = document.getElementById("equationDropdown");
-if (equationDropdown) {
-  equationDropdown.addEventListener("change", function () {
-    if (this.value) {
-      document.getElementById("functionInput").value = this.value;
-    }
-  });
-}
 
 // Add createFunctionPlot function
 function createFunctionPlot() {
@@ -2505,5 +2519,89 @@ document.addEventListener('deviceready', function() {
     });
   }
 });
+
+// Modal open/close logic for equation help
+const openEquationHelpBtn = document.getElementById('openEquationHelpBtn');
+const equationHelpModal = document.getElementById('equationHelpModal');
+const closeEquationHelpModal = document.getElementById('closeEquationHelpModal');
+const functionInput = document.getElementById('functionInput');
+const singleLineTab = document.getElementById('singleLineTab');
+const multiLineTab = document.getElementById('multiLineTab');
+const singleLineEquations = document.getElementById('singleLineEquations');
+const multiLineEquations = document.getElementById('multiLineEquations');
+
+if (openEquationHelpBtn && equationHelpModal && closeEquationHelpModal) {
+  openEquationHelpBtn.addEventListener('click', () => {
+    equationHelpModal.style.display = 'flex';
+  });
+  closeEquationHelpModal.addEventListener('click', () => {
+    equationHelpModal.style.display = 'none';
+  });
+  equationHelpModal.addEventListener('click', (e) => {
+    if (e.target === equationHelpModal) {
+      equationHelpModal.style.display = 'none';
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (equationHelpModal.style.display === 'flex' && e.key === 'Escape') {
+      equationHelpModal.style.display = 'none';
+    }
+  });
+
+  // Tab switching logic
+  if (singleLineTab && multiLineTab && singleLineEquations && multiLineEquations) {
+    singleLineTab.addEventListener('click', () => {
+      singleLineTab.classList.add('active');
+      multiLineTab.classList.remove('active');
+      singleLineEquations.style.display = 'flex';
+      multiLineEquations.style.display = 'none';
+      singleLineTab.style.border = '1.5px solid #a084e8';
+      multiLineTab.style.border = '1.5px solid #393a5a';
+    });
+    multiLineTab.addEventListener('click', () => {
+      singleLineTab.classList.remove('active');
+      multiLineTab.classList.add('active');
+      singleLineEquations.style.display = 'none';
+      multiLineEquations.style.display = 'flex';
+      singleLineTab.style.border = '1.5px solid #393a5a';
+      multiLineTab.style.border = '1.5px solid #a084e8';
+    });
+  }
+
+  // Add event listeners for all select buttons in the modal
+  equationHelpModal.addEventListener('click', function(e) {
+    if (e.target.classList.contains('selectEquationBtn')) {
+      let eq = e.target.getAttribute('data-equation');
+      // If the button is next to a textarea, use its value (for multi-line)
+      const textarea = e.target.parentElement.querySelector('textarea[readonly]');
+      if (textarea) {
+        eq = textarea.value;
+      }
+      if (functionInput) {
+        functionInput.value = eq;
+        functionInput.focus();
+      }
+      equationHelpModal.style.display = 'none';
+    }
+  });
+}
+
+// Prevent background scroll when scrolling inside the modal tab sections
+if (singleLineEquations) {
+  singleLineEquations.addEventListener('wheel', function(e) {
+    e.stopPropagation();
+  }, { passive: false });
+  singleLineEquations.addEventListener('touchmove', function(e) {
+    e.stopPropagation();
+  }, { passive: false });
+}
+if (multiLineEquations) {
+  multiLineEquations.addEventListener('wheel', function(e) {
+    e.stopPropagation();
+  }, { passive: false });
+  multiLineEquations.addEventListener('touchmove', function(e) {
+    e.stopPropagation();
+  }, { passive: false });
+}
 
 
