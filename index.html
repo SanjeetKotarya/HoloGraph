@@ -8,6 +8,9 @@
       name="description"
       content="Visualize complex data like never before with HoloGraph—an advanced 3D graph plotting tool with intuitive zoom, labeling, and VR capabilities."
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aframe-troika-text@^1.0.0/dist/aframe-troika-text.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -34,6 +37,14 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen">
+      <div class="splash-content">
+        <img src="logo.png" alt="HoloGraph Logo" class="splash-logo heartbeat" />
+        <div class="loading-text">Loading...</div>
+      </div>
+    </div>
+
     <div class="control-panel">
       <h3 class="sidebar-header">
         <img src="logo.png" alt="icon" class="sidebar-logo" />
@@ -69,16 +80,7 @@
         </div>
 
         <div class="control-group" id="equationDropdownGroup" style="display: none; flex-direction: column; align-items: stretch; margin-bottom: 6px;">
-          <label for="equationDropdown" style="margin-bottom: 2px;">Choose Example Equation:</label>
-          <select id="equationDropdown" style="width: 100%;">
-            <option value="">-- Select an equation --</option>
-            <option value="x^2 + y^2 = 1">Circle: x² + y² = 1</option>
-            <option value="x^2/4 + y^2 = 1">Ellipse: x²/4 + y² = 1</option>
-            <option value="y = x^2">Parabola: y = x²</option>
-            <option value="x^2 - y^2 = 1">Hyperbola: x² - y² = 1</option>
-            <option value="y = x">Line: y = x</option>
-            <option value="y = sin(x)">Sine: y = sin(x)</option>
-          </select>
+          <button id="customActionButton" style="width: 100%; margin-bottom: 6px;">Custom Action</button>
         </div>
 
         <div
@@ -88,7 +90,7 @@
         >
           <label for="functionInput" style="margin-bottom: -5px">
             f(x) or f(x,y) or equation(s):
-            <span style="font-weight: normal; color: #888">(one per line)</span>
+            <button id="openEquationHelpBtn" type="button" style="margin-left: 8px;font-size: 0.95em; background: #232946; color: #a084e8; border: 1px solid #393a5a; border-radius: 6px; padding: 2px 15px; cursor: pointer;">Sample</button>
           </label>
           <textarea
             id="functionInput"
@@ -309,7 +311,7 @@ sin(x)</textarea
 
     </div>
 
-    <a-scene id="scene" background="color: #1a1a2e" vr-mode-ui="enabled: false">
+    <a-scene id="scene" background="color: #0a0a14" vr-mode-ui="enabled: false">
       <a-assets>
       </a-assets>
       <!-- Enhanced lighting -->
@@ -433,6 +435,149 @@ sin(x)</textarea
         </defs>
         <polygon id="sidebarArrow" points="20,8 12,16 20,24" fill="#fff" />
       </svg>
+    </div>
+
+    <!-- Modal for equation help -->
+    <div id="equationHelpModal" style="display: none; position: fixed; z-index: 99999; left: 0; top: 0; width: 100vw; height: 100vh; background: none; align-items: center; justify-content: center; pointer-events: none;">
+      <div style="position: relative; display: inline-block;">
+        <div style="background: #181926; color: #e5e5f7; border-radius: 16px; padding: 28px 22px 26px 22px; max-width: 400px; width: 90vw; min-height: 320px; max-height: 70vh; box-shadow: 0 6px 32px 0 rgba(80, 80, 120, 0.25); pointer-events: auto; position: relative;">
+          <button id="closeEquationHelpModal" style="position: absolute; top: 0; right: 0; background: none; border: none; color: #e74c3c; font-size: 1.7em; cursor: pointer; padding: 0 4px; line-height: 1; z-index: 10;">&times;</button>
+          <div id="equationHelpModalContent">
+            <div style="display: flex; gap: 10px; margin-bottom: 18px;">
+              <button id="singleLineTab" class="equation-tab active" style="flex:1; background: #232946; color: #a084e8; border: 1.5px solid #a084e8; border-radius: 8px 8px 0 0; padding: 6px 0; cursor: pointer; font-weight: 600;">Single Line</button>
+              <button id="multiLineTab" class="equation-tab" style="flex:1; background: #232946; color: #a084e8; border: 1.5px solid #393a5a; border-radius: 8px 8px 0 0; padding: 6px 0; cursor: pointer; font-weight: 600;">Multi Line</button>
+            </div>
+            <div id="singleLineEquations" class="custom-scrollbar" style="display: flex; flex-direction: column; gap: 10px; font-size: 0.95em; max-height: 320px; overflow-y: auto; overflow-x: hidden;">
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Circle:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="text" value="x² + y² = 1" readonly style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; pointer-events: none;" />
+                  <button class="selectEquationBtn" data-equation="x^2 + y^2 = 1" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Ellipse:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="text" value="x²/4 + y² = 1" readonly style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; pointer-events: none;" />
+                  <button class="selectEquationBtn" data-equation="x^2/4 + y^2 = 1" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Parabola:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="text" value="y = x²" readonly style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; pointer-events: none;" />
+                  <button class="selectEquationBtn" data-equation="y = x^2" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Line:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="text" value="y = x" readonly style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; pointer-events: none;" />
+                  <button class="selectEquationBtn" data-equation="y = x" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Sine:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="text" value="y = sin(x)" readonly style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; pointer-events: none;" />
+                  <button class="selectEquationBtn" data-equation="y = sin(x)" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+            </div>
+            <div id="multiLineEquations" class="custom-scrollbar" style="display: none; flex-direction: column; gap: 10px; font-size: 0.95em; max-height: 320px; overflow-y: auto; overflow-x: hidden;">
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>System of Equations 1:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^2 + y^2 = 1
+y = x</textarea>
+                  <button class="selectEquationBtn" data-equation="x^2 + y^2 = 1\ny = x" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>System of Equations 2:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^2 - y^2 = 1
+y = x^2</textarea>
+                  <button class="selectEquationBtn" data-equation="x^2 - y^2 = 1\ny = x^2" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Flower Shape:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^4 + y^4 = 1
+y = x * sin(5 * atan2(y, x))</textarea>
+                  <button class="selectEquationBtn" data-equation="x^4 + y^4 = 1\ny = x * sin(5 * atan2(y, x))" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Butterfly Curve:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">y = x * sin(x) * exp(abs(cos(x)))
+x^2 + y^2 = 4</textarea>
+                  <button class="selectEquationBtn" data-equation="y = x * sin(x) * exp(abs(cos(x)))\nx^2 + y^2 = 4" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Wave Interference:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">y = sin(x) + 0.5 * sin(3 * x)
+x^2 + y^2 = 2</textarea>
+                  <button class="selectEquationBtn" data-equation="y = sin(x) + 0.5 * sin(3 * x)\nx^2 + y^2 = 2" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Rose Curve:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^2 + y^2 = cos(4 * atan2(y, x))
+y = x * sin(4 * atan2(y, x))</textarea>
+                  <button class="selectEquationBtn" data-equation="x^2 + y^2 = cos(4 * atan2(y, x))\ny = x * sin(4 * atan2(y, x))" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Heart Shape:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">(x^2 + y^2 - 1)^3 = x^2 * y^3
+y = abs(x)^(2/3) + abs(y)^(2/3) - 1</textarea>
+                  <button class="selectEquationBtn" data-equation="(x^2 + y^2 - 1)^3 = x^2 * y^3\ny = abs(x)^(2/3) + abs(y)^(2/3) - 1" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Star Shape:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^2 + y^2 = 1 + 0.3 * cos(5 * atan2(y, x))
+y = x * sin(5 * atan2(y, x))</textarea>
+                  <button class="selectEquationBtn" data-equation="x^2 + y^2 = 1 + 0.3 * cos(5 * atan2(y, x))\ny = x * sin(5 * atan2(y, x))" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
+                <span style="font-size: 0.93em;"><b>Spiral:</b></span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">y = x * sin(x)
+x^2 + y^2 = x</textarea>
+                  <button class="selectEquationBtn" data-equation="y = x * sin(x)\nx^2 + y^2 = x" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <style>
+            #singleLineEquations.custom-scrollbar::-webkit-scrollbar,
+            #multiLineEquations.custom-scrollbar::-webkit-scrollbar {
+              width: 7px;
+              background: #232946;
+            }
+            #singleLineEquations.custom-scrollbar::-webkit-scrollbar-thumb,
+            #multiLineEquations.custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #a084e8;
+              border-radius: 6px;
+            }
+            #singleLineEquations.custom-scrollbar,
+            #multiLineEquations.custom-scrollbar {
+              scrollbar-width: thin;
+              scrollbar-color: #a084e8 #232946;
+            }
+          </style>
+        </div>
+      </div>
     </div>
 
     <script src="script.js"></script>
