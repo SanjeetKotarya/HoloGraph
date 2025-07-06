@@ -117,7 +117,6 @@ sin(x)</textarea
               <option value="low">Low (Fast)</option>
               <option value="medium" selected>Medium (Balanced)</option>
               <option value="high">High (Slow)</option>
-              <option value="ultra">Ultra High (Very Slow)</option>
             </select>
           </div>
         </div>
@@ -501,14 +500,7 @@ y = x^2</textarea>
                   <button class="selectEquationBtn" data-equation="x^2 - y^2 = 1\ny = x^2" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
                 </div>
               </div>
-              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
-                <span style="font-size: 0.93em;"><b>Flower Shape:</b></span>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^4 + y^4 = 1
-y = x * sin(5 * atan2(y, x))</textarea>
-                  <button class="selectEquationBtn" data-equation="x^4 + y^4 = 1\ny = x * sin(5 * atan2(y, x))" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
-                </div>
-              </div>
+
               <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
                 <span style="font-size: 0.93em;"><b>Butterfly Curve:</b></span>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -526,14 +518,6 @@ x^2 + y^2 = 2</textarea>
                 </div>
               </div>
               <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
-                <span style="font-size: 0.93em;"><b>Rose Curve:</b></span>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^2 + y^2 = cos(4 * atan2(y, x))
-y = x * sin(4 * atan2(y, x))</textarea>
-                  <button class="selectEquationBtn" data-equation="x^2 + y^2 = cos(4 * atan2(y, x))\ny = x * sin(4 * atan2(y, x))" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
-                </div>
-              </div>
-              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
                 <span style="font-size: 0.93em;"><b>Heart Shape:</b></span>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">(x^2 + y^2 - 1)^3 = x^2 * y^3
@@ -541,22 +525,7 @@ y = abs(x)^(2/3) + abs(y)^(2/3) - 1</textarea>
                   <button class="selectEquationBtn" data-equation="(x^2 + y^2 - 1)^3 = x^2 * y^3\ny = abs(x)^(2/3) + abs(y)^(2/3) - 1" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
                 </div>
               </div>
-              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
-                <span style="font-size: 0.93em;"><b>Star Shape:</b></span>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">x^2 + y^2 = 1 + 0.3 * cos(5 * atan2(y, x))
-y = x * sin(5 * atan2(y, x))</textarea>
-                  <button class="selectEquationBtn" data-equation="x^2 + y^2 = 1 + 0.3 * cos(5 * atan2(y, x))\ny = x * sin(5 * atan2(y, x))" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
-                </div>
-              </div>
-              <div class="equation-example" style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 0.93em;">
-                <span style="font-size: 0.93em;"><b>Spiral:</b></span>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <textarea readonly rows="2" style="background: #232946; color: #fff; border: 1.5px solid #a084e8; border-radius: 6px; padding: 2px 8px; font-size: 0.93em; width: 100%; resize: none; pointer-events: none;">y = x * sin(x)
-x^2 + y^2 = x</textarea>
-                  <button class="selectEquationBtn" data-equation="y = x * sin(x)\nx^2 + y^2 = x" style="background: #a084e8; color: #fff; border: none; border-radius: 6px; padding: 3px 12px; cursor: pointer; pointer-events: auto; font-size: 0.93em;">Select</button>
-                </div>
-              </div>
+
             </div>
           </div>
           <style>
