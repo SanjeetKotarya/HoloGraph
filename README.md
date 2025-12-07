@@ -1,4 +1,4 @@
-📊 VR Data Visualizer
+📊 HoloGraph - VR Data Visualizer
 
 HoloGraph is an interactive data visualization tool designed for mobile VR platforms such as Google Cardboard. It transforms complex datasets into immersive, explorable 3D environments using WebVR and WebGL technologies. The goal is to make data comprehension more intuitive and engaging through spatial interaction and depth perception in virtual reality.
 
